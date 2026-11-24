@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import * as m from '#lib/paraglide/messages.js';
 	import { getLocale, setLocale } from '#lib/paraglide/runtime.js';
-	import Shield from '@lucide/svelte/icons/shield-check';
 	import Setup from '#lib/Setup.svelte';
-	import { example, decodeWorkout, type Workout } from '#lib/workout.js';
+	import { decodeWorkout, example, type Workout } from '#lib/workout.js';
+	import Shield from '@lucide/svelte/icons/shield-check';
+	import { onMount } from 'svelte';
 	let workout = $state<Workout>(example),
 		error = $state(''),
 		ready = $state(false);
@@ -32,7 +32,7 @@
 <svelte:head>
 	<title>{m.page_title()}</title><meta name="theme-color" content="#f8f8f4" />
 </svelte:head>
-<header>
+<header class="sticky top-0 z-10 mb-6">
 	<div class="bar">
 		<div class="identity">
 			<svg width="37" height="37" viewBox="0 0 40 40" aria-hidden="true">
@@ -58,7 +58,6 @@
 					NL
 				</button>
 			</div>
-			<span class="private"><i></i>{m.private_session()}</span>
 		</div>
 	</div>
 </header>
@@ -66,9 +65,11 @@
 	{#if ready}<Setup {workout} {error} planner={{ model, sound }} />{/if}
 </main>
 <footer>
-	<span>{m.brand()} <b>/</b> {m.studio()}</span><span>
+	<!-- <span>{m.brand()} <b>/</b> {m.studio()}</span> -->
+	<span class="ml-auto">
 		<Shield size={14} aria-hidden="true" />{m.local_blurb()}
 	</span>
+	<span class="private"><i></i>{m.private_session()}</span>
 </footer>
 
 <style>
@@ -154,7 +155,7 @@
 		min-height: 65px;
 		margin-top: 1.5rem;
 		justify-content: space-between;
-		gap: 0.5rem;
+		gap: 1.5rem;
 		color: #686c67;
 		font-size: 0.7rem;
 	}
