@@ -84,6 +84,7 @@ Feature: Follow the prescribed circuit on the static site
     And I remember the current detector request
     And 2 seconds pass
     And the old request delivers a complete squat
-    Then the counter reads "0 reps"
+    Then the counter reads "00:10"
+    And the interval repetition count reads "0 reps"
     When I perform 1 cycle of "squat"
-    Then the counter reads "1 rep"
+    Then the interval repetition count reads "1 rep"

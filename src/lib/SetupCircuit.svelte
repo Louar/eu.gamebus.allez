@@ -107,7 +107,7 @@
 		}
 	}
 	function plannerPath(encoded: string) {
-		return `minimal/workouts/${encoded}/?model=${model}&sound=${sound ? '1' : '0'}` as const;
+		return `workouts/${encoded}/?model=${model}&sound=${sound ? '1' : '0'}` as const;
 	}
 	function practice() {
 		const w = validated();

@@ -1,3 +1,3 @@
-// Workout links carry their prescription in the query, not a dynamic route.
+// Prerender the planner; encoded workout paths use the static fallback.
 export const prerender = true;
 export const trailingSlash = 'always';

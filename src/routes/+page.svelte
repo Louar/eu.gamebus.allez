@@ -4,11 +4,9 @@
 	import { getLocale, setLocale } from '#lib/paraglide/runtime.js';
 	import Shield from '@lucide/svelte/icons/shield-check';
 	import Setup from '#lib/Setup.svelte';
-	import Live from '#lib/Live.svelte';
 	import { example, decodeWorkout, type Workout } from '#lib/workout.js';
 	let workout = $state<Workout>(example),
 		error = $state(''),
-		live = $state(false),
 		ready = $state(false);
 	let model = $state<'mediapipe' | 'movenet'>('mediapipe'),
 		sound = $state(false);
@@ -16,7 +14,10 @@
 	onMount(() => {
 		locale = getLocale();
 		document.documentElement.lang = locale;
-		const encoded = new URL(location.href).searchParams.get('workout');
+		const params = new URL(location.href).searchParams;
+		model = params.get('model') === 'movenet' ? 'movenet' : 'mediapipe';
+		sound = params.get('sound') === '1';
+		const encoded = params.get('workout');
 		if (encoded !== null) {
 			try {
 				workout = decodeWorkout(encoded);
@@ -26,14 +27,6 @@
 		}
 		ready = true;
 	});
-	function practice(w: Workout, id: 'mediapipe' | 'movenet', tones: boolean) {
-		workout = w;
-		model = id;
-		sound = tones;
-		error = '';
-		live = true;
-		window.scrollTo(0, 0);
-	}
 </script>
 
 <svelte:head>
@@ -50,34 +43,27 @@
 			</svg><strong>{m.brand()}</strong><span class="descriptor">{m.studio()}</span>
 		</div>
 		<div class="tools">
-			{#if !live}<div class="languages">
-					<button
-						aria-label={m.english()}
-						aria-pressed={locale === 'en'}
-						onclick={() => setLocale('en')}
-					>
-						EN
-					</button><button
-						aria-label={m.dutch()}
-						aria-pressed={locale === 'nl'}
-						onclick={() => setLocale('nl')}
-					>
-						NL
-					</button>
-				</div>{/if}<span class="private"><i></i>{m.private_session()}</span>
+			<div class="languages">
+				<button
+					aria-label={m.english()}
+					aria-pressed={locale === 'en'}
+					onclick={() => setLocale('en')}
+				>
+					EN
+				</button><button
+					aria-label={m.dutch()}
+					aria-pressed={locale === 'nl'}
+					onclick={() => setLocale('nl')}
+				>
+					NL
+				</button>
+			</div>
+			<span class="private"><i></i>{m.private_session()}</span>
 		</div>
 	</div>
 </header>
 <main>
-	{#if ready}{#if live}<Live
-				{workout}
-				{model}
-				{sound}
-				onexit={() => {
-					live = false;
-					window.scrollTo(0, 0);
-				}}
-			/>{:else}<Setup {workout} {error} onpractice={practice} />{/if}{/if}
+	{#if ready}<Setup {workout} {error} planner={{ model, sound }} />{/if}
 </main>
 <footer>
 	<span>{m.brand()} <b>/</b> {m.studio()}</span><span>

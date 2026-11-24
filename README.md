@@ -1,6 +1,6 @@
 # Alez
 
-A single-person workout studio that runs on-device. Open a workout link or edit the example circuit, select a landmark model, then choose **Practice** to enable the camera. A three-second countdown separates practice from the workout. Switch between English and Dutch in setup. Nothing is recorded or uploaded; finishing a session releases the camera and keeps its summary in memory.
+A single-person workout studio that runs on-device. Edit the example circuit, select a landmark model, then choose **Start workout** to open practice and enable the camera. Shared workout links first show a preview with **Enable camera**. A three-second countdown separates practice from the workout. Switch between English and Dutch in setup. Nothing is recorded or uploaded; finishing a session releases the camera and keeps its summary in memory.
 
 ## Run locally
 
@@ -24,9 +24,9 @@ Open `http://127.0.0.1:4173/allez.gamebus.eu/`. Deploy the complete `build/` dir
 
 ## Workout links
 
-Visit `/minimal/` for the alternative two-page layout. **Start workout** opens a full-viewport practice screen with the movement guide, tracker feedback, timer and controls over the mirrored video. **Copy workout link** shares `/minimal/workouts/<base64url>/`. Opening that link directly shows the prescription and waits for **Enable camera**. Visiting `/minimal/workouts/` without a prescription picks three distinct exercises and replaces the address with their shareable workout link, so refreshing keeps the same circuit. The original studio at `/` still accepts query-based links.
+Visit `/` for the workout planner. **Start workout** opens a full-viewport practice screen with the movement guide, tracker feedback, timer and controls over the mirrored video. **Copy workout link** shares `/workouts/<base64url>/`. Opening that link directly shows the prescription and waits for **Enable camera**. Visiting `/workouts/` without a prescription picks three distinct exercises and replaces the address with their shareable workout link, so refreshing keeps the same circuit. The planner at `/` also accepts query-based links.
 
-`?workout=` carries unpadded Base64URL of UTF-8 JSON, limited to 16,384 encoded characters. **Copy workout link** generates it using the same validator that opens incoming links.
+The workout path segment (or the planner's `?workout=` query) carries unpadded Base64URL of UTF-8 JSON, limited to 16,384 encoded characters. **Copy workout link** generates it using the same validator that opens incoming links.
 
 ```json
 {

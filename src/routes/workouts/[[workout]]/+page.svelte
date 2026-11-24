@@ -34,14 +34,14 @@
 		workout = null;
 		if (!encoded) {
 			const generated = encodeWorkout(randomWorkout());
-			void goto(resolve(`minimal/workouts/${generated}/${page.url.search}`), { replace: true });
+			void goto(resolve(`workouts/${generated}/${page.url.search}`), { replace: true });
 			return;
 		}
 		try {
 			workout = decodeWorkout(encoded);
 			// Only Start workout navigates programmatically from the planner. Pasted
 			// links, history traversal and reloads always require Enable camera.
-			entered = type === 'goto' && from?.route.id === '/minimal';
+			entered = type === 'goto' && from?.route.id === '/';
 		} catch {
 			invalid = true;
 		}
@@ -60,7 +60,7 @@
 				{workout}
 				{model}
 				bind:sound
-				onexit={() => void goto(resolve(`/minimal${plannerQuery}`))}
+				onexit={() => void goto(resolve(`/${plannerQuery}`))}
 			/>
 		{/key}
 	{:else if workout || invalid}
@@ -102,7 +102,7 @@
 					{#if workout}<Button size="lg" onclick={() => (entered = true)}>
 							<Camera data-icon="inline-start" />{m.camera_enable()}
 						</Button>{/if}
-					<Button variant="outline" href={resolve(`/minimal${plannerQuery}`)}>
+					<Button variant="outline" href={resolve(`/${plannerQuery}`)}>
 						<ArrowLeft data-icon="inline-start" />{m.back_setup()}
 					</Button>
 				</div>

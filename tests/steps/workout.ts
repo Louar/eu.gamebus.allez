@@ -55,7 +55,7 @@ AfterScenario(async ({ page }) => {
 async function openCircuit(page: Page, steps: unknown[], options: Record<string, unknown> = {}) {
 	const link = Buffer.from(JSON.stringify({ v: 1, steps, ...options })).toString('base64url');
 	await page.goto(`?workout=${link}`);
-	await expect(button(page, 'Practice')).toBeVisible();
+	await expect(button(page, 'Start workout')).toBeVisible();
 }
 async function advance(page: Page, seconds: number) {
 	await page.evaluate((seconds) => (window as ReplayWindow).__alez.advance(seconds), seconds);
@@ -135,7 +135,7 @@ Given(
 	}
 );
 When('I start the workout after practice', async ({ page }) => {
-	await button(page, 'Practice').click();
+	await button(page, 'Start workout').click();
 	await stage(page, 'practice');
 	await start(page);
 });
@@ -167,6 +167,9 @@ When('{int} seconds pass', async ({ page }, seconds: number) => {
 });
 Then('the counter reads {string}', async ({ page }, text: string) => {
 	await expect(page.getByTestId('counter')).toContainText(text);
+});
+Then('the interval repetition count reads {string}', async ({ page }, text: string) => {
+	await expect(page.getByTestId('counter').locator('..').getByRole('strong')).toHaveText(text);
 });
 Then('I see feedback {string}', async ({ page }, text: string) => {
 	await expect(page.getByTestId('feedback')).toContainText(text);
@@ -238,7 +241,7 @@ Then('the model and runtime files are served under the repository path', async (
 	}
 });
 When('I practise {string}', async ({ page }, exercise: string) => {
-	await button(page, 'Practice').click();
+	await button(page, 'Start workout').click();
 	await stage(page, 'practice');
 	await page.getByRole('combobox', { name: 'Practice exercise', exact: true }).click();
 	await page
@@ -288,15 +291,19 @@ When(
 		await button(page, 'Copy workout link').click();
 		await expect
 			.poll(() => page.evaluate(() => navigator.clipboard.readText()))
-			.toContain('?workout=');
+			.toContain(`${baseURL}workouts/`);
 		const url = new URL(await page.evaluate(() => navigator.clipboard.readText()));
-		expect(url.pathname).toBe(new URL(baseURL!).pathname);
-		expect(url.searchParams.get('workout')).toMatch(/^[\w-]+$/);
+		expect(url.pathname).toBe(
+			`${new URL(baseURL!).pathname}workouts/${url.pathname.split('/').at(-2)}/`
+		);
+		expect(url.pathname.split('/').at(-2)).toMatch(/^[\w-]+$/);
+		expect(url.searchParams.has('workout')).toBe(false);
 		copied.set(page, url.href);
 	}
 );
 When('I open the copied workout link', async ({ page }) => {
 	await page.goto(copied.get(page)!);
+	await page.getByRole('link', { name: 'Back to setup', exact: true }).click();
 });
 Then(
 	'the editable target is {int} reps of {string}',
@@ -323,7 +330,7 @@ When('I switch setup to Dutch', async ({ page }) => {
 	await expect(page.locator('html')).toHaveAttribute('lang', 'nl');
 });
 When('I open Dutch practice for {string}', async ({ page }, exercise: string) => {
-	await button(page, 'Oefenen').click();
+	await button(page, 'Start training').click();
 	await stage(page, 'practice');
 	await page.getByRole('combobox', { name: 'Oefening uitproberen', exact: true }).click();
 	await page

@@ -10,7 +10,7 @@ const preview = (page: Page) => page.getByTestId('workout-preview');
 const segment = (url: URL) => url.pathname.split('/').at(-2)!;
 
 Given('I edit the minimal planner to prescribe 17 squats', async ({ page }) => {
-	expect((await page.goto('minimal/'))?.status()).toBe(200);
+	expect((await page.goto('./'))?.status()).toBe(200);
 	await page.getByRole('button', { name: 'Edit circuit' }).click();
 	await page.getByLabel('Target 1', { exact: true }).fill('17');
 	await page.getByRole('button', { name: 'Done editing' }).click();
@@ -25,7 +25,7 @@ When(
 		await page.getByRole('button', { name: 'Copy workout link' }).click();
 		await expect
 			.poll(() => page.evaluate(() => navigator.clipboard.readText()))
-			.toContain(`${baseURL}minimal/workouts/`);
+			.toContain(`${baseURL}workouts/`);
 		paths.set(page, await page.evaluate(() => navigator.clipboard.readText()));
 		await start(page).click();
 		await expect(page.getByTestId('stage')).toHaveAttribute('data-stage', 'practice');
@@ -42,7 +42,7 @@ Then('the workout URL contains the edited prescription and settings', async ({ p
 
 Given('I open a minimal timed squat link as a new visitor', async ({ page, baseURL }) => {
 	const encoded = encodeWorkout({ v: 1, steps: [{ exercise: 'squat', duration: 15 }] });
-	const url = `${baseURL}minimal/workouts/${encoded}/`;
+	const url = `${baseURL}workouts/${encoded}/`;
 	paths.set(page, url);
 	expect((await page.goto(url))?.status()).toBe(404);
 	await expect(page).toHaveURL(url);
@@ -66,13 +66,13 @@ Then('I can preview the timed squat before enabling the camera', async ({ page }
 });
 
 Given('I open minimal workouts without a prescription', async ({ page }) => {
-	expect((await page.goto('minimal/workouts/'))?.status()).toBe(200);
+	expect((await page.goto('workouts/'))?.status()).toBe(200);
 });
 
 Then('I get a shareable circuit with three exercises', async ({ page, baseURL }) => {
 	await expect(enable(page)).toBeVisible();
 	const url = new URL(page.url());
-	expect(url.href).toBe(`${baseURL}minimal/workouts/${segment(url)}/`);
+	expect(url.href).toBe(`${baseURL}workouts/${segment(url)}/`);
 	expect(decodeWorkout(segment(url)).steps.filter((s) => 'exercise' in s)).toHaveLength(3);
 	paths.set(page, url.href);
 });
@@ -85,14 +85,14 @@ Then('the generated circuit remains available for practice', async ({ page }) =>
 });
 
 Given('I visit a minimal workout path with invalid encoding', async ({ page }) => {
-	expect((await page.goto('minimal/workouts/!bad!/'))?.status()).toBe(404);
+	expect((await page.goto('workouts/!bad!/'))?.status()).toBe(404);
 });
 
 Then('I can return from the link error to the minimal planner', async ({ page, baseURL }) => {
 	await expect(page.getByRole('alert')).toContainText(/workout|link/i);
 	await expect(enable(page)).toHaveCount(0);
 	await page.getByRole('link', { name: 'Back to setup' }).click();
-	await expect(page).toHaveURL(`${baseURL}minimal/`);
+	await expect(page).toHaveURL(baseURL!);
 	await expect(start(page)).toBeVisible();
 });
 
