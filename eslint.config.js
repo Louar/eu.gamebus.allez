@@ -10,6 +10,7 @@ const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
 
 export default defineConfig(
 	includeIgnoreFile(gitignorePath),
+	{ ignores: ['.agents/**', '.github/skills/**', 'project.inlang/**', '_INPUT/**'] },
 	js.configs.recommended,
 	ts.configs.recommendedTypeChecked,
 	svelte.configs.recommended,
@@ -36,9 +37,19 @@ export default defineConfig(
 			}
 		}
 	},
+	{ files: ['scripts/**/*.mjs'], extends: [ts.configs.disableTypeChecked] },
 	{
-		// Override or add rule settings here, such as:
-		// 'svelte/button-has-type': 'error'
-		rules: {}
+		files: ['tests/*.test.ts'],
+		// node:test manages the promises returned by top-level test registrations.
+		rules: {
+			'@typescript-eslint/no-floating-promises': [
+				'error',
+				{ allowForKnownSafeCalls: [{ from: 'package', name: 'test', package: 'node:test' }] }
+			]
+		}
+	},
+	{
+		files: ['src/lib/components/ui/button/button.svelte'],
+		rules: { 'svelte/no-navigation-without-resolve': 'off' }
 	}
 );

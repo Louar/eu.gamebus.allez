@@ -7,3 +7,12 @@ bun.lockb
 
 # Miscellaneous
 /static/
+
+# Imported research, registry components and tool-managed files
+/_INPUT/
+/.agents/
+/.github/skills/
+/project.inlang/
+/skills-lock.json
+/src/lib/components/ui/
+/src/lib/utils.ts

@@ -13,10 +13,12 @@ export default defineConfig({
 				runes: ({ filename }) =>
 					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
-			adapter: adapter()
+			paths: { base: (process.env.BASE_PATH ?? '') as '' | `/${string}` },
+			adapter: adapter(process.env.VITE_REPLAY === 'true' ? { pages: 'build-replay' } : undefined)
 		}),
 
 		paraglideVitePlugin({
+			strategy: ['cookie', 'baseLocale'],
 			project: './project.inlang',
 			outdir: './src/lib/paraglide',
 			emitTsDeclarations: true

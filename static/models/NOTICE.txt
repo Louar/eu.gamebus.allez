@@ -1,0 +1,4 @@
+MediaPipe Tasks Vision and Pose Landmarker Full: Google LLC / MediaPipe Authors.
+TensorFlow.js and MoveNet SinglePose Thunder: Google LLC / TensorFlow Authors.
+The model weights are unmodified. Both runtimes and models are distributed
+under the Apache License, Version 2.0. See LICENSE.txt in this directory.

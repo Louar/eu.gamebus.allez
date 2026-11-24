@@ -7,6 +7,10 @@ node_modules
 .wrangler
 /.svelte-kit
 /build
+/build-replay
+/static/models/mediapipe/
+/static/models/movenet/
+/.features-gen
 
 # OS
 .DS_Store
