@@ -64,7 +64,6 @@
 			</g>
 			<rect width="145" height="250" fill="url(#studio-fade)" />
 		</svg>
-		<figcaption>{m.setup_figure()}</figcaption>
 	</figure>
 </header>
 
