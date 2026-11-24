@@ -3,7 +3,7 @@ import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { extname, resolve, sep } from 'node:path';
 
-// No SPA fallback or cross-origin isolation: missing assets must really 404 as on Pages.
+// Pages serves the site's custom 404 document without changing the URL or status.
 const mount = `${process.env.BASE_PATH ?? '/allez.gamebus.eu'}/`;
 const root = resolve(process.env.VITE_REPLAY === 'true' ? 'build-replay' : 'build');
 const types = {
@@ -24,15 +24,23 @@ createServer(async (req, res) => {
 		if (!['HEAD', 'GET'].includes(req.method)) return res.writeHead(405).end();
 		const path = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
 		if (!path.startsWith(mount)) return res.writeHead(404).end();
-		const file = resolve(
+		let file = resolve(
 			root,
 			path.slice(mount.length),
 			...(path.endsWith('/') ? ['index.html'] : [])
 		);
 		if (!file.startsWith(root + sep)) return res.writeHead(404).end();
-		const info = await stat(file);
-		if (!info.isFile()) return res.writeHead(404).end();
-		res.writeHead(200, {
+		let info = await stat(file).catch(() => null);
+		if (info?.isDirectory()) {
+			const url = new URL(req.url, 'http://localhost');
+			return res.writeHead(301, { Location: `${url.pathname}/${url.search}` }).end();
+		}
+		const status = info?.isFile() ? 200 : 404;
+		if (status === 404) {
+			file = resolve(root, '404.html');
+			info = await stat(file);
+		}
+		res.writeHead(status, {
 			'Content-Length': info.size,
 			'Content-Type': types[extname(file)] ?? 'application/octet-stream'
 		});

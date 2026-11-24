@@ -15,16 +15,25 @@
 	import { name, feedback, cue, clock, reps, staticExercise } from './words';
 	import Skeleton from './Skeleton.svelte';
 	import Demo from './Demo.svelte';
+	import LocalizedSelect from './LocalizedSelect.svelte';
 	import Play from '@lucide/svelte/icons/play';
 	import Pause from '@lucide/svelte/icons/pause';
 	import Scan from '@lucide/svelte/icons/scan-line';
+	import Volume2 from '@lucide/svelte/icons/volume-2';
+	import VolumeX from '@lucide/svelte/icons/volume-x';
 	let {
 		workout,
 		model,
-		sound,
-		onexit
-	}: { workout: Workout; model: 'mediapipe' | 'movenet'; sound: boolean; onexit: () => void } =
-		$props();
+		sound = $bindable(),
+		onexit,
+		immersive = false
+	}: {
+		workout: Workout;
+		model: 'mediapipe' | 'movenet';
+		sound: boolean;
+		onexit: () => void;
+		immersive?: boolean;
+	} = $props();
 	const session = new Session(untrack(() => workout));
 	let practice = $state<ExerciseId>(
 		untrack(() => workout.steps.find((s) => 'exercise' in s)!.exercise)
@@ -39,7 +48,7 @@
 		hold = $state(0),
 		signal = $state<TrackingUpdate | null>(null),
 		image = $state.raw<PoseFrame | null>(null);
-	let video = $state<HTMLVideoElement>(null!),
+	let video: HTMLVideoElement,
 		source: ReturnType<typeof camera> | undefined,
 		audio: AudioContext | undefined;
 	let deadline = 0,
@@ -55,6 +64,13 @@
 		readout = $state('');
 	let lastCapture = -Infinity,
 		lastBeatEpoch = -1;
+	let elapsed = $state('00:00'),
+		interval = $state(''),
+		intervalCount = $state('');
+	const practiceOptions = $derived(exercises.map((value) => ({ value, label: name(value) })));
+	function focusTitle(node: HTMLElement) {
+		if (immersive) node.focus({ preventScroll: true });
+	}
 	const now = () => (replay ? virtual : performance.now() / 1000);
 	const epoch = () => (stage === 'practice' ? -1 - generation : session.epoch);
 	function beep(freq = 620) {
@@ -108,6 +124,8 @@
 		stage = 'rest' in s ? 'rest' : 'exercise';
 		paused = session.state === 'paused';
 		circuit = session.circuitRemaining;
+		elapsed = clock(Math.floor(session.elapsed));
+		interval = 'duration' in s ? clock(session.remaining ?? 0) : '';
 		next = session.nextExercise;
 		position = m.position({
 			round: session.round,
@@ -125,11 +143,13 @@
 		if ('reps' in s) readout = m.rep_target({ now: count, target: s.reps });
 		else if ('hold' in s)
 			readout = m.hold_target({ now: Math.floor((r?.continuous ?? 0) + 1e-8), target: s.hold });
-		else
+		else {
+			intervalCount = staticExercise(s.exercise) ? m.held_s({ n: seconds }) : reps(count);
 			readout = m.time_readout({
-				count: staticExercise(s.exercise) ? m.held_s({ n: seconds }) : reps(count),
+				count: intervalCount,
 				left: m.time_left({ time: clock(session.remaining ?? 0) })
 			});
+		}
 	}
 	function step(t: number) {
 		if (stage === 'countdown' && !paused) {
@@ -250,8 +270,12 @@
 			if (ok) lastCapture = now();
 		}
 	}
+	function attachCamera(node: HTMLVideoElement) {
+		video = node;
+		untrack(() => void connect());
+		return () => source?.close();
+	}
 	onMount(() => {
-		void connect();
 		let raf = 0;
 		const run = () => {
 			step(now());
@@ -296,10 +320,59 @@
 	});
 </script>
 
-<section data-testid="stage" data-stage={stage}>
+{#snippet preview()}
+	<video {@attach attachCamera} muted autoplay playsinline aria-label={m.preview()}></video>
+	{#if image && !paused && stage !== 'rest'}<div class="overlay">
+			<Skeleton frame={image} cover={immersive} />
+		</div>{/if}
+	{#if !image && (replay || !loaded)}<Scan class="scan" aria-hidden="true" />{/if}
+{/snippet}
+
+{#snippet selector()}
+	<small>{m.practice_select()}</small>
+	<LocalizedSelect
+		label={m.practice_select()}
+		value={practice}
+		options={practiceOptions}
+		onchange={(id: ExerciseId) => {
+			practice = id;
+			resetPractice();
+		}}
+	/>
+{/snippet}
+
+{#snippet controls()}
+	{#if error}<p role="alert">{error === 'camera' ? m.camera_error() : m.model_error()}</p>
+		<Button variant="outline" onclick={connect}>{m.retry()}</Button>
+	{:else if !loaded}<p role="status">{m.loading()}</p>{/if}
+	<div class="actions">
+		<Button variant="outline" aria-pressed={sound} onclick={() => (sound = !sound)}>
+			{#if sound}<Volume2 data-icon="inline-start" />{:else}<VolumeX
+					data-icon="inline-start"
+				/>{/if}{m.setup_sound()}
+		</Button>
+		{#if stage === 'practice'}<Button size="lg" disabled={!loaded} onclick={start}>
+				<Play data-icon="inline-start" />{m.start_workout()}
+			</Button><Button variant="outline" onclick={resetPractice}>
+				{m.restart_practice()}
+			</Button><Button variant="ghost" onclick={onexit}>{m.back_setup()}</Button>
+		{:else}<Button onclick={toggle}>
+				{#if paused}<Play data-icon="inline-start" />{m.resume()}{:else}<Pause
+						data-icon="inline-start"
+					/>{m.pause()}{/if}
+			</Button><Button variant="outline" onclick={finish}>{m.finish()}</Button>{/if}
+	</div>
+{/snippet}
+
+<section
+	data-testid="stage"
+	data-stage={stage}
+	data-immersive={immersive || undefined}
+	class:immersive
+>
 	{#if stage === 'summary'}
 		<div class="eyebrow"><i></i>{m.private_session()}</div>
-		<h1>{m.summary()}</h1>
+		<h1 tabindex="-1" {@attach focusTitle}>{m.summary()}</h1>
 		<p>{m.summary_note()}</p>
 		<div class="stats">
 			<div><span>{m.completed_rounds()}</span><strong>{session.completedRounds}</strong></div>
@@ -335,6 +408,69 @@
 			{/each}
 		</div>
 		<Button onclick={onexit}>{m.back_setup()}</Button>
+	{:else if immersive}
+		<div class="backdrop screen">{@render preview()}</div>
+		<div class="hud">
+			<div class="topline">
+				<header class="pane identity">
+					<div class="eyebrow"><i></i>{stage === 'practice' ? m.practice_title() : m.live()}</div>
+					<h1 tabindex="-1" {@attach focusTitle}>
+						{stage === 'countdown' ? m.ready() : stage === 'rest' ? m.rest_title() : name(activeId)}
+					</h1>
+					{#if stage === 'practice'}<p>{m.practice_intro()}</p>{:else}<small data-testid="position">
+							{stage === 'countdown'
+								? m.position({ round: 1, step: 1, total: workout.steps.length })
+								: position}
+						</small>{/if}
+				</header>
+				{#if !paused && (stage === 'practice' || stage === 'exercise')}<Demo
+						exercise={activeId}
+						docked
+					/>{/if}
+			</div>
+			<div class="deck">
+				<div class="pane telemetry">
+					<small>
+						{stage === 'countdown'
+							? m.ready()
+							: stage === 'rest'
+								? m.rest_title()
+								: stage === 'exercise' && interval
+									? m.setup_interval()
+									: staticExercise(activeId)
+										? m.setup_hold()
+										: m.setup_reps()}
+					</small>
+					{#key beat}<div class="digits" data-testid="counter" class:pulse={beat > 0}>
+							{#if stage === 'practice'}{staticExercise(practice)
+									? m.held_s({ n: Math.floor(hold) })
+									: reps(value)}{:else if stage === 'countdown'}{Math.ceil(
+									countdown
+								)}{:else if stage === 'rest'}<span data-testid="rest-clock">
+									{readout}
+								</span>{:else}{interval || readout}{/if}
+						</div>{/key}
+					{#if stage === 'exercise' && interval}<strong>{intervalCount}</strong>{/if}
+					{#if circuit !== null}<small data-testid="circuit-clock">
+							{m.circuit_left({ time: clock(circuit) })}
+						</small>{:else if stage === 'exercise' || stage === 'rest'}<small>
+							{m.active_time()} · {elapsed}
+						</small>{/if}
+				</div>
+				<div class="pane command dark">
+					{#if paused}<strong role="status">
+							{m.paused()}
+						</strong>{:else if stage === 'rest' && next}<strong data-testid="next">
+							{m.next_ex({ exercise: name(next) })}
+						</strong>{:else if stage === 'practice' || stage === 'exercise'}<div>
+							<b data-testid="feedback">{feedback(activeId, signal)}</b>
+							<p>{cue(activeId)}</p>
+						</div>{/if}
+					{#if stage === 'practice'}{@render selector()}{/if}
+					{@render controls()}
+				</div>
+			</div>
+		</div>
 	{:else}
 		<div class="eyebrow"><i></i>{stage === 'practice' ? m.practice_title() : m.live()}</div>
 		<h1>
@@ -351,21 +487,11 @@
 			</p>{/if}
 		<div class="live-grid">
 			<div class="screen">
-				<video bind:this={video} muted autoplay playsinline aria-label={m.preview()}></video>
-				{#if image && !paused && stage !== 'rest'}<div class="overlay">
-						<Skeleton frame={image} />
-					</div>{/if}
-				{#if !image && (replay || !loaded)}<Scan class="scan" aria-hidden="true" />{/if}
+				{@render preview()}
 				{#if stage === 'practice' || stage === 'exercise'}<Demo exercise={activeId} />{/if}
 			</div>
 			<aside>
-				{#if stage === 'practice'}<label for="practice">{m.practice_select()}</label><select
-						id="practice"
-						bind:value={practice}
-						onchange={resetPractice}
-					>
-						{#each exercises as ex (ex)}<option value={ex}>{name(ex)}</option>{/each}
-					</select>{/if}
+				{#if stage === 'practice'}{@render selector()}{/if}
 				{#if circuit !== null}<small data-testid="circuit-clock">
 						{m.circuit_left({ time: clock(circuit) })}
 					</small>{/if}
@@ -387,24 +513,7 @@
 						{feedback(activeId, signal)}
 					</b>
 					<p>{cue(activeId)}</p>{/if}
-				{#if error}<p role="alert">{error === 'camera' ? m.camera_error() : m.model_error()}</p>
-					<Button variant="outline" onclick={connect}>{m.retry()}</Button>{:else if !loaded}<p
-						role="status"
-					>
-						{m.loading()}
-					</p>{/if}
-				<div class="actions">
-					{#if stage === 'practice'}<Button size="lg" disabled={!loaded} onclick={start}>
-							<Play data-icon="inline-start" />{m.start_workout()}
-						</Button><Button variant="outline" onclick={resetPractice}>
-							{m.restart_practice()}
-						</Button><Button variant="ghost" onclick={onexit}>{m.back_setup()}</Button>
-					{:else}<Button onclick={toggle}>
-							{#if paused}<Play data-icon="inline-start" />{m.resume()}{:else}<Pause
-									data-icon="inline-start"
-								/>{m.pause()}{/if}
-						</Button><Button variant="outline" onclick={finish}>{m.finish()}</Button>{/if}
-				</div>
+				{@render controls()}
 			</aside>
 		</div>
 	{/if}
@@ -416,7 +525,6 @@
 	}
 	.eyebrow,
 	small,
-	label,
 	.stats span {
 		font-size: 0.72rem;
 		font-weight: 750;
@@ -490,10 +598,6 @@
 		flex-direction: column;
 		gap: 0.75rem;
 	}
-	select {
-		width: 100%;
-		border-radius: 0.5rem;
-	}
 	.digits {
 		font-weight: 720;
 		font-size: clamp(2rem, 4.4vw, 4.2rem);
@@ -566,6 +670,153 @@
 	@media (prefers-reduced-motion: reduce) {
 		.pulse {
 			animation: none;
+		}
+	}
+	.immersive {
+		position: fixed;
+		inset: 0;
+		height: 100dvh;
+		padding: 0;
+		overflow: auto;
+		overscroll-behavior: contain;
+		isolation: isolate;
+		background: var(--studio-paper);
+	}
+	.immersive[data-stage='summary'] {
+		padding: clamp(1rem, 5vw, 4rem) max(1rem, calc((100% - 64rem) / 2));
+	}
+	.immersive .backdrop {
+		position: fixed;
+		inset: 0;
+		min-height: 0;
+		aspect-ratio: auto;
+		border-radius: 0;
+	}
+	.backdrop video {
+		object-fit: cover;
+	}
+	.hud {
+		--gutter: clamp(0.7rem, 2.2vw, 2rem);
+		--ink: #172026;
+		--signal: #ffc789;
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		justify-content: space-between;
+		gap: clamp(2rem, 12dvh, 9rem);
+		min-height: 100%;
+		padding: max(var(--gutter), env(safe-area-inset-top))
+			max(var(--gutter), env(safe-area-inset-right)) max(var(--gutter), env(safe-area-inset-bottom))
+			max(var(--gutter), env(safe-area-inset-left));
+	}
+	.topline,
+	.deck {
+		display: flex;
+		justify-content: space-between;
+		align-items: flex-start;
+		gap: 0.65rem;
+	}
+	.pane {
+		min-width: 0;
+		border-radius: 0.75rem;
+		padding: clamp(0.7rem, 1.5vw, 1.3rem);
+	}
+	.identity,
+	.telemetry {
+		background: var(--ink);
+		color: white;
+		box-shadow: inset 3px 0 var(--signal);
+	}
+	.identity {
+		max-width: 27rem;
+	}
+	.hud h1 {
+		font-size: clamp(1.4rem, 4vw, 3.4rem);
+		margin: 0.25rem 0;
+		overflow-wrap: anywhere;
+	}
+	.hud .eyebrow,
+	.identity small,
+	.telemetry small {
+		color: var(--signal);
+	}
+	.hud .eyebrow i {
+		background: currentColor;
+	}
+	.identity p {
+		color: inherit;
+	}
+	.deck {
+		align-items: flex-end;
+	}
+	.telemetry,
+	.command {
+		display: flex;
+		flex-direction: column;
+		gap: 0.4rem;
+	}
+	.telemetry .digits {
+		font-size: clamp(2.25rem, min(8vw, 12dvh), 7.25rem);
+	}
+	.command {
+		color-scheme: dark;
+		background: var(--ink);
+		border: 1px solid #647079;
+		color: var(--foreground);
+		max-width: 28rem;
+	}
+	.hud p {
+		font-size: 0.88rem;
+		line-height: 1.3;
+	}
+	.command p {
+		color: inherit;
+	}
+	.hud .actions {
+		margin: 0;
+		padding: 0.2rem 0 0;
+		gap: 0.35rem;
+		align-items: center;
+	}
+	.hud .command [role='alert'] {
+		font-weight: 650;
+		color: #ffc1ac;
+	}
+	.immersive :global(:focus-visible) {
+		outline: 3px solid #1979d3;
+		outline-offset: 2px;
+	}
+	@media (max-width: 600px) and (orientation: portrait) {
+		.hud {
+			gap: 1rem;
+		}
+		.deck {
+			flex-direction: column;
+			align-items: stretch;
+		}
+		.telemetry {
+			align-self: flex-start;
+		}
+		.command {
+			max-width: none;
+		}
+	}
+	@media (max-height: 480px) and (orientation: landscape) {
+		.hud {
+			--gutter: 0.5rem;
+			gap: 0.65rem;
+		}
+		.pane {
+			padding: 0.6rem 0.8rem;
+		}
+		.identity {
+			max-width: min(48vw, 28rem);
+		}
+		.command {
+			max-width: min(70vw, 32rem);
+		}
+		.hud h1 {
+			font-size: 1.5rem;
 		}
 	}
 </style>

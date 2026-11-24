@@ -1,9 +1,18 @@
 <script lang="ts">
 	import { bones, type PoseFrame } from './motion';
-	let { frame, demo = false }: { frame: PoseFrame; demo?: boolean } = $props();
+	let {
+		frame,
+		demo = false,
+		cover = false
+	}: { frame: PoseFrame; demo?: boolean; cover?: boolean } = $props();
 </script>
 
-<svg viewBox={`0 0 ${frame.width} ${frame.height}`} aria-hidden="true" class:demo>
+<svg
+	viewBox={`0 0 ${frame.width} ${frame.height}`}
+	preserveAspectRatio={cover ? 'xMidYMid slice' : 'xMidYMid meet'}
+	aria-hidden="true"
+	class:demo
+>
 	{#if !frame.missing}
 		{#each bones as [a, b] (`${a}-${b}`)}
 			{@const p = frame.points[a]}

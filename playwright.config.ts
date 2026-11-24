@@ -1,7 +1,8 @@
 import { defineConfig } from '@playwright/test';
 import { defineBddConfig } from 'playwright-bdd';
 
-const baseURL = 'http://127.0.0.1:4173/allez.gamebus.eu/';
+const basePath = process.env.BASE_PATH ?? '/allez.gamebus.eu';
+const baseURL = `http://127.0.0.1:4173${basePath}/`;
 
 export default defineConfig({
 	testDir: defineBddConfig({ features: 'tests/features/*.feature', steps: 'tests/steps/*.ts' }),
@@ -10,7 +11,7 @@ export default defineConfig({
 	use: { baseURL, trace: 'retain-on-failure' },
 	webServer: {
 		command: 'npm run build && node scripts/serve-static.mjs',
-		env: { BASE_PATH: '/allez.gamebus.eu', VITE_REPLAY: 'true' },
+		env: { BASE_PATH: basePath, VITE_REPLAY: 'true' },
 		url: baseURL,
 		timeout: 180_000
 	}

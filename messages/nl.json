@@ -1,6 +1,8 @@
 {
 	"$schema": "https://inlang.com/schema/inlang-message-format",
 	"brand": "Alez",
+	"camera_enable": "Camera inschakelen",
+	"camera_entry": "Bekijk je circuit en schakel daarna je camera in om te oefenen. Je video blijft op dit apparaat.",
 	"studio": "Beweegstudio",
 	"english": "English",
 	"dutch": "Nederlands",

@@ -1,6 +1,8 @@
 {
 	"$schema": "https://inlang.com/schema/inlang-message-format",
 	"brand": "Alez",
+	"camera_enable": "Enable camera",
+	"camera_entry": "Check your circuit, then enable your camera to practise. Your video stays on this device.",
 	"studio": "Movement studio",
 	"english": "English",
 	"dutch": "Nederlands",

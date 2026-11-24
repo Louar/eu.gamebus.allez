@@ -3,7 +3,7 @@
 	import * as m from '#lib/paraglide/messages.js';
 	import { demoFrames, type ExerciseId } from './motion';
 	import Skeleton from './Skeleton.svelte';
-	let { exercise }: { exercise: ExerciseId } = $props();
+	let { exercise, docked = false }: { exercise: ExerciseId; docked?: boolean } = $props();
 	let frames = $derived(demoFrames(exercise));
 	let time = $state(0);
 	let reduced = $state(false);
@@ -47,7 +47,7 @@
 	});
 </script>
 
-<figure>
+<figure class:docked>
 	<figcaption><i></i>{m.demo()}</figcaption>
 	<div class="poses">
 		{#if reduced}{#each frames as pose, i (i)}<Skeleton frame={pose} demo />{/each}{:else}<Skeleton
@@ -78,6 +78,19 @@
 		text-transform: uppercase;
 		font-weight: 700;
 	}
+	figure.docked {
+		position: static;
+		width: clamp(7rem, 20vw, 13rem);
+		flex: none;
+	}
+	.docked .poses {
+		height: clamp(3rem, 10dvh, 7rem);
+	}
+	@media (max-height: 450px) {
+		.docked .poses:has(:global(svg:nth-child(4))) :global(svg) {
+			height: 1.8rem;
+		}
+	}
 	i {
 		width: 0.4rem;
 		height: 0.4rem;
@@ -94,7 +107,7 @@
 		min-width: 0;
 	}
 	@media (prefers-reduced-motion: reduce) {
-		figure:has(:global(svg:nth-child(4))) {
+		figure:not(.docked):has(:global(svg:nth-child(4))) {
 			width: min(60%, 19rem);
 		}
 		.poses:has(:global(svg:nth-child(4))) {

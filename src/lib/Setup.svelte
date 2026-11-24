@@ -6,18 +6,20 @@
 	let {
 		workout = example,
 		error,
+		planner,
 		onpractice
 	}: {
 		workout: Workout;
 		error: string;
-		onpractice: (w: Workout, model: 'mediapipe' | 'movenet', sound: boolean) => void;
+		planner?: { model: 'mediapipe' | 'movenet'; sound: boolean };
+		onpractice?: (w: Workout, model: 'mediapipe' | 'movenet', sound: boolean) => void;
 	} = $props();
 </script>
 
 <div class="studio" data-testid="stage" data-stage="setup">
 	<StudioHero />
 	{#if error}<p role="alert">{m.setup_bad_link()}</p>{/if}
-	{#key workout}<SetupCircuit {workout} {onpractice} />{/key}
+	{#key workout}<SetupCircuit {workout} {planner} {onpractice} />{/key}
 </div>
 
 <style>

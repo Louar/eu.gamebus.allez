@@ -13,8 +13,11 @@ export default defineConfig({
 				runes: ({ filename }) =>
 					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
-			paths: { base: (process.env.BASE_PATH ?? '') as '' | `/${string}` },
-			adapter: adapter(process.env.VITE_REPLAY === 'true' ? { pages: 'build-replay' } : undefined)
+			paths: { base: (process.env.BASE_PATH ?? '') as '' | `/${string}`, relative: false },
+			adapter: adapter({
+				pages: process.env.VITE_REPLAY === 'true' ? 'build-replay' : 'build',
+				fallback: '404.html'
+			})
 		}),
 
 		paraglideVitePlugin({

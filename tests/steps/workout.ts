@@ -29,6 +29,11 @@ BeforeScenario(async ({ page, baseURL }) => {
 		};
 	});
 	page.on('pageerror', (error) => problems.push(error.message));
+	page.on('response', (response) => {
+		if (response.status() >= 400 && response.request().resourceType() !== 'document') {
+			problems.push(`${response.status()} ${response.url()}`);
+		}
+	});
 	await page.route('**/*', async (route) => {
 		const request = route.request();
 		if (new URL(request.url()).pathname.includes('/models/')) {
@@ -212,7 +217,9 @@ Given('I open setup without a workout link', async ({ page }) => {
 Then('setup offers both local models', async ({ page }) => {
 	const model = page.getByRole('combobox', { name: 'Model', exact: true });
 	await expect(model).toBeVisible();
-	await expect(model.locator('option')).toHaveText([/MediaPipe.*Full/i, /MoveNet.*Thunder/i]);
+	await model.click();
+	await expect(page.getByRole('option')).toHaveText([/MediaPipe.*Full/i, /MoveNet.*Thunder/i]);
+	await page.keyboard.press('Escape');
 	await expect(page.locator('html')).not.toHaveAttribute('data-camera-requested', 'true');
 });
 Then('the model and runtime files are served under the repository path', async ({ request }) => {
@@ -233,7 +240,11 @@ Then('the model and runtime files are served under the repository path', async (
 When('I practise {string}', async ({ page }, exercise: string) => {
 	await button(page, 'Practice').click();
 	await stage(page, 'practice');
-	await page.getByLabel('Practice exercise', { exact: true }).selectOption(exercise);
+	await page.getByRole('combobox', { name: 'Practice exercise', exact: true }).click();
+	await page
+		.getByRole('option')
+		.and(page.locator(`[data-value="${exercise}"]`))
+		.click();
 });
 When('I leave practice and start the countdown', async ({ page }) => {
 	await start(page);
@@ -269,7 +280,7 @@ Then('setup shows a link error and an edit action', async ({ page }) => {
 });
 When(
 	'I change the first target to {int} and copy the workout link',
-	async ({ page, context }, target: number) => {
+	async ({ page, context, baseURL }, target: number) => {
 		await context.grantPermissions(['clipboard-read', 'clipboard-write']);
 		await button(page, 'Edit circuit').click();
 		await page.getByLabel('Target 1', { exact: true }).fill(String(target));
@@ -279,7 +290,7 @@ When(
 			.poll(() => page.evaluate(() => navigator.clipboard.readText()))
 			.toContain('?workout=');
 		const url = new URL(await page.evaluate(() => navigator.clipboard.readText()));
-		expect(url.pathname).toBe('/allez.gamebus.eu/');
+		expect(url.pathname).toBe(new URL(baseURL!).pathname);
 		expect(url.searchParams.get('workout')).toMatch(/^[\w-]+$/);
 		copied.set(page, url.href);
 	}
@@ -292,8 +303,18 @@ Then(
 	async ({ page }, target: number, exercise: string) => {
 		await button(page, 'Edit circuit').click();
 		await expect(page.getByLabel('Target 1', { exact: true })).toHaveValue(String(target));
-		await expect(page.getByLabel('Exercise 1', { exact: true })).toHaveValue(exercise);
-		await expect(page.getByLabel('Target type 1', { exact: true })).toHaveValue('reps');
+		await page.getByRole('combobox', { name: 'Exercise 1', exact: true }).click();
+		await expect(page.getByRole('option', { selected: true })).toHaveAttribute(
+			'data-value',
+			exercise
+		);
+		await page.keyboard.press('Escape');
+		await page.getByRole('combobox', { name: 'Target type 1', exact: true }).click();
+		await expect(page.getByRole('option', { selected: true })).toHaveAttribute(
+			'data-value',
+			'reps'
+		);
+		await page.keyboard.press('Escape');
 	}
 );
 When('I switch setup to Dutch', async ({ page }) => {
@@ -304,7 +325,11 @@ When('I switch setup to Dutch', async ({ page }) => {
 When('I open Dutch practice for {string}', async ({ page }, exercise: string) => {
 	await button(page, 'Oefenen').click();
 	await stage(page, 'practice');
-	await page.getByLabel('Oefening uitproberen', { exact: true }).selectOption(exercise);
+	await page.getByRole('combobox', { name: 'Oefening uitproberen', exact: true }).click();
+	await page
+		.getByRole('option')
+		.and(page.locator(`[data-value="${exercise}"]`))
+		.click();
 });
 Then('the practice counter shows one repetition', async ({ page }) => {
 	await expect(page.getByTestId('counter')).toContainText(/\b1\b/);

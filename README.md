@@ -24,6 +24,8 @@ Open `http://127.0.0.1:4173/allez.gamebus.eu/`. Deploy the complete `build/` dir
 
 ## Workout links
 
+Visit `/minimal/` for the alternative two-page layout. **Start workout** opens a full-viewport practice screen with the movement guide, tracker feedback, timer and controls over the mirrored video. **Copy workout link** shares `/minimal/workouts/<base64url>/`. Opening that link directly shows the prescription and waits for **Enable camera**. Visiting `/minimal/workouts/` without a prescription picks three distinct exercises and replaces the address with their shareable workout link, so refreshing keeps the same circuit. The original studio at `/` still accepts query-based links.
+
 `?workout=` carries unpadded Base64URL of UTF-8 JSON, limited to 16,384 encoded characters. **Copy workout link** generates it using the same validator that opens incoming links.
 
 ```json

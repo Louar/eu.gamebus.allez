@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { tick, untrack } from 'svelte';
 	import { SvelteURL } from 'svelte/reactivity';
+	import { resolve } from '$app/paths';
+	import { goto } from '$app/navigation';
+	import LocalizedSelect from './LocalizedSelect.svelte';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import {
 		ArrowUpRight,
@@ -21,10 +24,12 @@
 
 	let {
 		workout,
+		planner,
 		onpractice
 	}: {
 		workout: Workout;
-		onpractice: (w: Workout, model: 'mediapipe' | 'movenet', sound: boolean) => void;
+		planner?: { model: 'mediapipe' | 'movenet'; sound: boolean };
+		onpractice?: (w: Workout, model: 'mediapipe' | 'movenet', sound: boolean) => void;
 	} = $props();
 	type Kind = 'reps' | 'duration' | 'hold' | 'rest';
 	type Row = { key: number; exercise: ExerciseId; kind: Kind; value: number | undefined };
@@ -51,8 +56,8 @@
 		seed.repeat && 'duration' in seed.repeat ? seed.repeat.duration : 180
 	);
 	let rest = $state<number | undefined>(seed.rest ?? 0);
-	let model = $state<'mediapipe' | 'movenet'>('mediapipe'),
-		sound = $state(false),
+	let model = $state<'mediapipe' | 'movenet'>(untrack(() => planner?.model ?? 'mediapipe')),
+		sound = $state(untrack(() => planner?.sound ?? false)),
 		edit = $state(false);
 	let invalid = $state(false),
 		tooLong = $state(false),
@@ -94,20 +99,33 @@
 			return;
 		}
 	}
+	function encodedWorkout(w: Workout) {
+		try {
+			return encodeWorkout(w);
+		} catch {
+			tooLong = true;
+		}
+	}
+	function plannerPath(encoded: string) {
+		return `minimal/workouts/${encoded}/?model=${model}&sound=${sound ? '1' : '0'}` as const;
+	}
 	function practice() {
 		const w = validated();
-		if (w) onpractice(w, model, sound);
+		if (!w) return;
+		if (!planner) return onpractice?.(w, model, sound);
+		const encoded = encodedWorkout(w);
+		if (encoded) void goto(resolve(plannerPath(encoded)));
 	}
 	async function copy() {
 		const w = validated();
 		if (!w) return;
-		const url = new SvelteURL(location.href);
-		try {
-			url.searchParams.set('workout', encodeWorkout(w));
-		} catch {
-			tooLong = true;
-			return;
-		}
+		const encoded = encodedWorkout(w);
+		if (!encoded) return;
+		const url = new SvelteURL(
+			planner ? resolve(plannerPath(encoded)) : location.href,
+			location.href
+		);
+		if (!planner) url.searchParams.set('workout', encoded);
 		url.hash = '';
 		try {
 			await navigator.clipboard.writeText(url.href);
@@ -153,7 +171,9 @@
 </script>
 
 <form
-	bind:this={form}
+	{@attach (element: HTMLFormElement) => {
+		form = element;
+	}}
 	class="dashboard"
 	oninput={(e) => {
 		if (e.target instanceof HTMLInputElement) e.target.setCustomValidity('');
@@ -183,11 +203,15 @@
 		{#if edit}
 			<div class="configuration">
 				<label>
-					{m.setup_repeat()}<select aria-label={m.setup_repeat()} bind:value={mode}>
-						<option value="rounds">{m.setup_rounds()}</option><option value="duration">
-							{m.setup_time()}
-						</option>
-					</select>
+					{m.setup_repeat()}<LocalizedSelect
+						label={m.setup_repeat()}
+						value={mode}
+						onchange={(v: 'rounds' | 'duration') => (mode = v)}
+						options={[
+							{ value: 'rounds', label: m.setup_rounds() },
+							{ value: 'duration', label: m.setup_time() }
+						] as const}
+					/>
 				</label>
 				{#if mode === 'rounds'}<label>
 						{m.setup_rounds()}<input type="number" min="1" required bind:value={rounds} />
@@ -221,22 +245,23 @@
 					{#if edit}
 						<div class="row-fields">
 							{#if row.kind === 'rest'}<strong>{m.setup_rest()}</strong>{:else}
-								<select
-									aria-label={m.setup_exercise_label({ n: i + 1 })}
+								<LocalizedSelect
+									label={m.setup_exercise_label({ n: i + 1 })}
 									value={row.exercise}
-									onchange={(e) => changeExercise(row, e.currentTarget.value as ExerciseId)}
-								>
-									{#each exercises as id (id)}<option value={id}>{name(id)}</option>{/each}
-								</select>
-								<select aria-label={m.setup_type_label({ n: i + 1 })} bind:value={row.kind}>
-									{#if isStatic(row.exercise)}<option value="hold">
-											{m.setup_hold()}
-										</option>{:else}<option value="reps">{m.setup_reps()}</option>{/if}<option
-										value="duration"
-									>
-										{m.setup_interval()}
-									</option>
-								</select>
+									onchange={(v: ExerciseId) => changeExercise(row, v)}
+									options={exercises.map((value) => ({ value, label: name(value) }))}
+								/>
+								<LocalizedSelect
+									label={m.setup_type_label({ n: i + 1 })}
+									value={row.kind}
+									onchange={(v: Kind) => (row.kind = v)}
+									options={[
+										isStatic(row.exercise)
+											? { value: 'hold', label: m.setup_hold() }
+											: { value: 'reps', label: m.setup_reps() },
+										{ value: 'duration', label: m.setup_interval() }
+									] as const}
+								/>
 							{/if}
 							<input
 								aria-label={m.setup_target_label({ n: i + 1 })}
@@ -287,11 +312,15 @@
 			<SlidersHorizontal size={20} aria-hidden="true" />
 		</header>
 		<label>
-			{m.setup_model()}<select aria-label={m.setup_model()} bind:value={model}>
-				<option value="mediapipe">{m.setup_mp()}</option><option value="movenet">
-					{m.setup_mn()}
-				</option>
-			</select>
+			{m.setup_model()}<LocalizedSelect
+				label={m.setup_model()}
+				value={model}
+				onchange={(v: 'mediapipe' | 'movenet') => (model = v)}
+				options={[
+					{ value: 'mediapipe', label: m.setup_mp() },
+					{ value: 'movenet', label: m.setup_mn() }
+				] as const}
+			/>
 		</label>
 		<label class="sound">
 			<Volume2 size={18} />{m.setup_sound()}<input
@@ -309,7 +338,7 @@
 		</div>
 		<div class="actions">
 			<Button size="lg" class="w-full justify-between" onclick={practice}>
-				{m.setup_practice()}<ArrowUpRight data-icon="inline-end" />
+				{planner ? m.start_workout() : m.setup_practice()}<ArrowUpRight data-icon="inline-end" />
 			</Button><Button variant="outline" class="w-full" onclick={copy}>
 				<Clipboard data-icon="inline-start" />{m.setup_copy()}
 			</Button>
@@ -416,8 +445,7 @@
 		font-size: 0.82rem;
 		font-weight: 600;
 	}
-	input:not([type='checkbox']),
-	select {
+	input:not([type='checkbox']) {
 		background-color: #fffefa;
 		border: 1px solid #cfcec6;
 		border-radius: 7px;
@@ -431,11 +459,7 @@
 		color: #252b2c;
 		padding: 8px 10px;
 	}
-	select {
-		padding-right: 30px;
-	}
 	.dashboard :global(button:focus-visible),
-	select:focus-visible,
 	input:focus-visible {
 		outline: 2px solid #a34211;
 		outline-offset: 2px;
@@ -595,7 +619,7 @@
 		.row-fields {
 			grid-template-columns: 1fr 80px;
 		}
-		.row-fields select:first-child {
+		.row-fields :global([data-slot='select-trigger']:first-child) {
 			grid-column: 1/-1;
 		}
 	}
@@ -609,7 +633,7 @@
 		.row-fields {
 			grid-template-columns: 1.2fr 1fr 70px;
 		}
-		.row-fields select:first-child {
+		.row-fields :global([data-slot='select-trigger']:first-child) {
 			grid-column: auto;
 		}
 	}
@@ -617,7 +641,7 @@
 		.row-fields {
 			grid-template-columns: 1fr 62px;
 		}
-		.row-fields select:first-child {
+		.row-fields :global([data-slot='select-trigger']:first-child) {
 			grid-column: 1/-1;
 		}
 		.configuration {
