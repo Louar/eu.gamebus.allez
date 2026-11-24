@@ -49,7 +49,9 @@ Given('I open a minimal timed squat link as a new visitor', async ({ page, baseU
 });
 
 When('I reload the shared workout path', async ({ page }) => {
-	expect((await page.reload())?.status()).toBe(404);
+	const response = await page.reload();
+	expect(response).not.toBeNull();
+	expect(response!.status()).toBe(response!.fromServiceWorker() ? 200 : 404);
 	await expect(page).toHaveURL(paths.get(page)!);
 });
 

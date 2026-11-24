@@ -12,6 +12,7 @@
 		type TrackingUpdate
 	} from './motion';
 	import { camera } from './camera';
+	import { workoutBusy } from './offline';
 	import { name, feedback, cue, clock, reps, staticExercise } from './words';
 	import Skeleton from './Skeleton.svelte';
 	import Demo from './Demo.svelte';
@@ -68,6 +69,11 @@
 		interval = $state(''),
 		intervalCount = $state('');
 	const practiceOptions = $derived(exercises.map((value) => ({ value, label: name(value) })));
+	$effect(() => {
+		// Keep the results screen intact too; leaving Live is the update-safe point.
+		workoutBusy.set(true);
+		return () => workoutBusy.set(false);
+	});
 	function focusTitle(node: HTMLElement) {
 		if (immersive) node.focus({ preventScroll: true });
 	}

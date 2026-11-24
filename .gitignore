@@ -8,8 +8,13 @@ node_modules
 /.svelte-kit
 /build
 /build-replay
+/build-next
 /static/models/mediapipe/
 /static/models/movenet/
+/static/models/catalog.json
+/static/manifest.webmanifest
+/static/icons/icon-192.png
+/static/icons/icon-512.png
 /.features-gen
 
 # OS

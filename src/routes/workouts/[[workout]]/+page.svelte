@@ -9,6 +9,7 @@
 	import { randomWorkout } from '#lib/minimal-workout.js';
 	import { name, reps } from '#lib/words.js';
 	import Live from '#lib/Live.svelte';
+	import { updateLocked } from '#lib/offline.js';
 	import Camera from '@lucide/svelte/icons/camera';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 
@@ -41,7 +42,7 @@
 			workout = decodeWorkout(encoded);
 			// Only Start workout navigates programmatically from the planner. Pasted
 			// links, history traversal and reloads always require Enable camera.
-			entered = type === 'goto' && from?.route.id === '/';
+			entered = !$updateLocked && type === 'goto' && from?.route.id === '/';
 		} catch {
 			invalid = true;
 		}
@@ -99,7 +100,7 @@
 					<p class="intro" role="alert">{m.invalid_link()}</p>
 				{/if}
 				<div class="entry-actions">
-					{#if workout}<Button size="lg" onclick={() => (entered = true)}>
+					{#if workout}<Button size="lg" disabled={$updateLocked} onclick={() => (entered = true)}>
 							<Camera data-icon="inline-start" />{m.camera_enable()}
 						</Button>{/if}
 					<Button variant="outline" href={resolve(`/${plannerQuery}`)}>

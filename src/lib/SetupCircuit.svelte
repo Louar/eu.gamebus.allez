@@ -4,6 +4,8 @@
 	import { resolve } from '$app/paths';
 	import { goto } from '$app/navigation';
 	import LocalizedSelect from './LocalizedSelect.svelte';
+	import Offline from './Offline.svelte';
+	import { updateLocked } from './offline';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import {
 		ArrowUpRight,
@@ -110,6 +112,7 @@
 		return `workouts/${encoded}/?model=${model}&sound=${sound ? '1' : '0'}` as const;
 	}
 	function practice() {
+		if ($updateLocked) return;
 		const w = validated();
 		if (!w) return;
 		if (!planner) return onpractice?.(w, model, sound);
@@ -329,6 +332,7 @@
 				bind:checked={sound}
 			/>
 		</label>
+		<Offline {model} />
 		<div class="privacy">
 			<ShieldCheck size={20} />
 			<div>
@@ -337,7 +341,7 @@
 			</div>
 		</div>
 		<div class="actions">
-			<Button size="lg" class="w-full justify-between" onclick={practice}>
+			<Button size="lg" class="w-full justify-between" disabled={$updateLocked} onclick={practice}>
 				{planner ? m.start_workout() : m.setup_practice()}<ArrowUpRight data-icon="inline-end" />
 			</Button><Button variant="outline" class="w-full" onclick={copy}>
 				<Clipboard data-icon="inline-start" />{m.setup_copy()}
