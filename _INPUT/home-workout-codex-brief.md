@@ -1,4 +1,4 @@
-# Implementation brief for Codex · Home workout tracker
+# Implementation brief for Codex · Alez: a home workout tracker
 
 Build a single-person, camera-based home workout app in the existing Svelte 5 / SvelteKit project. Use TypeScript, shadcn-svelte (ie, use the shadcn-svelte skill), the project's preconfigured Paraglide setup with English (`en`) and Dutch (`nl`), npm and adapter-static. Deployable output must work under a GitHub Pages repository subpath. The URL describes a prescribed workout. The app credits only the current exercise. If squats are prescribed and the user does jumping-jacks, leave the counter at zero and display “Waiting for a squat.” The measure of performance is completed reps or observed hold time.
 
