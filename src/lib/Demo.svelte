@@ -89,6 +89,11 @@
 	.docked .poses {
 		height: clamp(5rem, 18dvh, 12rem);
 	}
+	@media (max-width: 900px) {
+		.docked .poses {
+			height: 4rem;
+		}
+	}
 	@media (max-height: 450px) {
 		.docked .poses {
 			height: 3rem;

@@ -102,6 +102,8 @@
 	"setup_edit": "Edit circuit",
 	"setup_done": "Done editing",
 	"setup_rounds": "Rounds",
+	"increase_rounds": "Increase rounds",
+	"decrease_rounds": "Decrease rounds",
 	"setup_budget": "Circuit time (seconds)",
 	"setup_auto": "Rest between exercises (seconds)",
 	"setup_repeat": "Repeat mode",

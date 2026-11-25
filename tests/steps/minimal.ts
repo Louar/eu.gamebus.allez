@@ -128,6 +128,13 @@ Then('the practice cards and controls fit the viewport', async ({ page }) => {
 	if (viewport.width <= 900) {
 		expect(exercise.x + exercise.width).toBeLessThanOrEqual(progress.x);
 		expect(exercise.y).toBeCloseTo(progress.y, 0);
+		const heading = (await page
+			.getByTestId('current-exercise')
+			.getByRole('heading')
+			.boundingBox())!;
+		const guide = (await page.getByRole('figure', { name: 'Movement guide' }).boundingBox())!;
+		expect(guide.x).toBeGreaterThanOrEqual(heading.x + heading.width);
+		expect(exercise.height).toBeLessThan(160);
 	} else {
 		expect(exercise.y + exercise.height).toBeLessThanOrEqual(progress.y);
 		expect(exercise.x).toBeGreaterThan(viewport.width / 2);
@@ -149,7 +156,7 @@ Then('the immersive timed workout HUD fits the viewport', async ({ page }) => {
 	await expect(page.getByTestId('counter')).toContainText('00:15');
 	const viewport = page.viewportSize()!;
 	const video = page.locator('video');
-	await expect(video).toHaveCSS('object-fit', 'cover');
+	await expect(video).toHaveCSS('object-fit', 'contain');
 	const box = await video.boundingBox();
 	expect(box?.width).toBeCloseTo(viewport.width, 0);
 	expect(box?.height).toBeCloseTo(viewport.height, 0);
@@ -167,16 +174,76 @@ Then('the immersive timed workout HUD fits the viewport', async ({ page }) => {
 	await expect(page.getByTestId('current-exercise')).toContainText('Current exercise');
 	await expect(page.getByTestId('current-exercise')).not.toContainText(/Round|Step|Movement guide/);
 	await expect(page.getByTestId('exercise-progress')).not.toContainText('Workout time');
+	await expect(page.getByTestId('tracking-warning')).toHaveCount(0);
+	const toolbarItems = await page
+		.getByTestId('session-controls')
+		.locator('button, .session-time')
+		.all();
+	const toolbar = (await page.getByTestId('session-controls').boundingBox())!;
+	for (const item of toolbarItems) {
+		const bounds = (await item.boundingBox())!;
+		expect(bounds.y + bounds.height / 2).toBeCloseTo(toolbar.y + toolbar.height / 2, 0);
+	}
 	const exercise = (await page.getByTestId('current-exercise').boundingBox())!;
 	const progress = (await page.getByTestId('exercise-progress').boundingBox())!;
 	if (viewport.width <= 900) {
 		expect(exercise.x + exercise.width).toBeLessThanOrEqual(progress.x);
 		expect(exercise.y).toBeCloseTo(progress.y, 0);
+		const heading = (await page
+			.getByTestId('current-exercise')
+			.getByRole('heading')
+			.boundingBox())!;
+		const guide = (await page.getByRole('figure', { name: 'Movement guide' }).boundingBox())!;
+		expect(guide.x).toBeGreaterThanOrEqual(heading.x + heading.width);
+		expect(exercise.height).toBeLessThan(160);
+		expect(exercise.width).toBeCloseTo(progress.width, 0);
 	} else {
 		expect(exercise.y + exercise.height).toBeLessThanOrEqual(progress.y);
 		expect(exercise.x).toBeCloseTo(progress.x, 0);
 		expect(exercise.x).toBeGreaterThan(viewport.width / 2);
 	}
+});
+
+Then('I can adjust rounds and inspect the read-only circuit while paused', async ({ page }) => {
+	const pause = page.getByRole('button', { name: 'Pause', exact: true });
+	const rounds = page.getByTestId('round-control');
+	await expect(rounds).toHaveText('1/1');
+	await rounds.click();
+	await expect(pause).toHaveAttribute('aria-pressed', 'true');
+	await expect(page.getByRole('button', { name: 'Decrease rounds' })).toBeDisabled();
+	await page.getByRole('button', { name: 'Increase rounds' }).click();
+	await expect(rounds).toHaveText('1/2');
+	await page.getByRole('button', { name: 'Increase rounds' }).click();
+	await page.getByRole('button', { name: 'Decrease rounds' }).click();
+	await expect(rounds).toHaveText('1/2');
+	await page.keyboard.press('Escape');
+	await pause.click();
+	await page.getByRole('menuitem', { name: 'Resume', exact: true }).click();
+	await page.evaluate(() =>
+		(window as typeof window & { __alez: { advance(s: number): void } }).__alez.advance(15)
+	);
+	await expect(rounds).toHaveText('2/2');
+	await page.getByTestId('step-control').click();
+	await expect(pause).toHaveAttribute('aria-pressed', 'true');
+	const circuit = page.getByRole('dialog', { name: 'Your circuit' });
+	await expect(circuit.getByRole('listitem')).toHaveCount(1);
+	await expect(circuit.getByRole('listitem')).toContainText('Squat');
+	await expect(circuit.locator('[aria-current="step"]')).toHaveCount(1);
+	await expect(circuit.locator('input, [role="combobox"]')).toHaveCount(0);
+	await page.evaluate(() =>
+		(window as typeof window & { __alez: { advance(s: number): void } }).__alez.advance(30)
+	);
+	await expect(page.getByTestId('counter')).toContainText('00:15');
+	await page.keyboard.press('Escape');
+	await rounds.click();
+	await expect(page.getByRole('button', { name: 'Decrease rounds' })).toBeDisabled();
+	await page.keyboard.press('Escape');
+	await pause.click();
+	await page.getByRole('menuitem', { name: 'Resume', exact: true }).click();
+	await page.evaluate(() =>
+		(window as typeof window & { __alez: { advance(s: number): void } }).__alez.advance(15)
+	);
+	await expect(page.getByTestId('stage')).toHaveAttribute('data-stage', 'summary');
 });
 
 Then('I can toggle workout sound without interrupting the exercise', async ({ page }) => {

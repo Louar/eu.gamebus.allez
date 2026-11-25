@@ -341,4 +341,15 @@ export class Session {
 		this.tick(timestamp);
 		if (this.current || this.state === 'rest' || this.state === 'paused') this.end();
 	}
+	setRounds(rounds: number): boolean {
+		if (
+			(this.state !== 'ready' && this.state !== 'paused') ||
+			!Number.isSafeInteger(rounds) ||
+			rounds < this.round ||
+			(this.workout.repeat && 'duration' in this.workout.repeat)
+		)
+			return false;
+		this.workout.repeat = { rounds };
+		return true;
+	}
 }

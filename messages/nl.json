@@ -102,6 +102,8 @@
 	"setup_edit": "Circuit bewerken",
 	"setup_done": "Bewerken afronden",
 	"setup_rounds": "Ronden",
+	"increase_rounds": "Meer rondes",
+	"decrease_rounds": "Minder rondes",
 	"setup_budget": "Circuittijd (seconden)",
 	"setup_auto": "Rust tussen oefeningen (seconden)",
 	"setup_repeat": "Herhaalmodus",

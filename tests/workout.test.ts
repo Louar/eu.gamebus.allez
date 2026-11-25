@@ -294,3 +294,39 @@ test('manual finish while paused preserves partial results without wall clock le
 	assert.equal(s.results[0].reps, 1);
 	assert.equal(s.results[0].partial, true);
 });
+
+test('round target changes preserve progress and control when the session ends', () => {
+	const original: Workout = { v: 1, steps: [interval] };
+	const s = new Session(original);
+	assert.equal(s.setRounds(3), true);
+	assert.equal(original.repeat, undefined);
+	s.start(0);
+	assert.equal(s.setRounds(4), false);
+	s.tick(2);
+	assert.equal(s.round, 2);
+	s.pause(3);
+	const earned = structuredClone(s.results);
+	assert.equal(s.setRounds(1), false);
+	assert.equal(s.setRounds(2), true);
+	assert.deepEqual(s.results, earned);
+	assert.equal(s.elapsed, 3);
+	assert.equal(s.current?.elapsed, 1);
+	s.tick(100);
+	assert.equal(s.elapsed, 3);
+	s.resume(100);
+	s.tick(101);
+	assert.equal(s.state, 'finished');
+	assert.equal(s.completedRounds, 2);
+	assert.equal(s.setRounds(5), false);
+});
+
+test('invalid round targets and time-budget conversions are rejected', () => {
+	const s = new Session({ v: 1, steps: [interval] });
+	for (const n of [0, -1, 1.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1]) {
+		assert.equal(s.setRounds(n), false);
+	}
+	const timed = run([interval], { repeat: { duration: 10 } });
+	timed.pause(1);
+	assert.equal(timed.setRounds(2), false);
+	assert.deepEqual(timed.workout.repeat, { duration: 10 });
+});

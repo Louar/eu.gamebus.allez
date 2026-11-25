@@ -32,6 +32,7 @@ Feature: Portable minimal workout paths on a static Pages site
     Examples:
       | width | height |
       | 390   | 844    |
+      | 320   | 640    |
       | 844   | 390    |
       | 1440  | 900    |
 
@@ -54,6 +55,11 @@ Feature: Portable minimal workout paths on a static Pages site
     Then the lost tracking overlay is visible
     When I perform 1 cycle of "squat"
     Then the lost tracking overlay is hidden
+
+  Scenario: Round and step controls pause without discarding progress
+    Given I open a minimal timed squat link as a new visitor
+    When I enable the workout camera and start the countdown
+    Then I can adjust rounds and inspect the read-only circuit while paused
 
   Scenario: Sound can be changed during a workout
     Given I open a minimal timed squat link as a new visitor

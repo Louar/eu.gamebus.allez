@@ -176,10 +176,15 @@ Then('I see feedback {string}', async ({ page }, text: string) => {
 });
 Then('the lost tracking overlay is visible', async ({ page }) => {
 	await expect(page.getByTestId('tracking-overlay')).toBeVisible();
-	await expect(page.getByRole('button', { name: 'Tracking lost', exact: true })).toBeVisible();
+	await expect(page.getByTestId('tracking-warning')).toBeVisible();
+	await expect(page.getByTestId('tracking-warning')).toHaveText('Tracking lost');
+	const controls = (await page.getByTestId('session-controls').boundingBox())!;
+	const warning = (await page.getByTestId('tracking-warning').boundingBox())!;
+	expect(warning.y).toBeGreaterThanOrEqual(controls.y + controls.height);
 });
 Then('the lost tracking overlay is hidden', async ({ page }) => {
 	await expect(page.getByTestId('tracking-overlay')).toHaveCount(0);
+	await expect(page.getByTestId('tracking-warning')).toHaveCount(0);
 });
 Then('the circuit clock shows {string}', async ({ page }, text: string) => {
 	await expect(page.getByTestId('circuit-clock')).toContainText(text);

@@ -6,7 +6,8 @@
 	import * as Card from '#lib/components/ui/card/index.js';
 	import * as Alert from '#lib/components/ui/alert/index.js';
 	import { Toggle } from '#lib/components/ui/toggle/index.js';
-	import { DropdownMenu } from 'bits-ui';
+	import { DropdownMenu, Popover } from 'bits-ui';
+	import { Badge } from '#lib/components/ui/badge/index.js';
 	import { Session, type Workout } from './workout';
 	import {
 		Tracker,
@@ -27,8 +28,12 @@
 	import Volume2 from '@lucide/svelte/icons/volume-2';
 	import VolumeX from '@lucide/svelte/icons/volume-x';
 	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
-	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import Square from '@lucide/svelte/icons/square';
+	import Repeat2 from '@lucide/svelte/icons/repeat-2';
+	import ListOrdered from '@lucide/svelte/icons/list-ordered';
+	import Plus from '@lucide/svelte/icons/plus';
+	import Minus from '@lucide/svelte/icons/minus';
+	import Coffee from '@lucide/svelte/icons/coffee';
 	let {
 		workout,
 		model,
@@ -77,17 +82,16 @@
 		intervalCount = $state('');
 	const practiceOptions = $derived(exercises.map((value) => ({ value, label: name(value) })));
 	let pauseMenu = $state(false);
+	let currentRound = $state(1),
+		currentStep = $state(1);
+	let roundGoal = $state(
+		untrack(() => {
+			const repeat = workout.repeat;
+			return repeat && 'duration' in repeat ? null : (repeat?.rounds ?? 1);
+		})
+	);
 	const trackingLost = $derived(
 		!paused && (stage === 'practice' || stage === 'exercise') && signal?.status === 'lost'
-	);
-	const trackingLabel = $derived(
-		paused
-			? m.paused()
-			: stage === 'rest'
-				? m.rest_title()
-				: stage === 'countdown'
-					? m.ready()
-					: feedback(activeId, signal)
 	);
 	onMount(() => {
 		// Keep the results screen intact too; leaving Live is the update-safe point.
@@ -150,6 +154,8 @@
 		stage = 'rest' in s ? 'rest' : 'exercise';
 		paused = session.state === 'paused';
 		circuit = session.circuitRemaining;
+		currentRound = session.round;
+		currentStep = session.stepIndex + 1;
 		elapsed = clock(Math.floor(session.elapsed));
 		interval = 'duration' in s ? clock(session.remaining ?? 0) : '';
 		next = session.nextExercise;
@@ -260,6 +266,15 @@
 			clearMotion();
 		} else if (!paused && stage !== 'summary') toggle();
 	}
+	function pauseForDetails(open: boolean) {
+		if (open && !paused) toggle();
+	}
+	function changeRounds(delta: number) {
+		if (roundGoal !== null && session.setRounds(roundGoal + delta)) {
+			roundGoal += delta;
+			if (session.state !== 'ready') snapshot();
+		}
+	}
 	function start() {
 		paused = false;
 		clearMotion();
@@ -363,8 +378,8 @@
 	{#if !image && (replay || !loaded)}<Scan class="scan" aria-hidden="true" />{/if}
 {/snippet}
 
-{#snippet selector()}
-	<small>{m.practice_select()}</small>
+{#snippet selector(compact = false)}
+	{#if !compact}<small>{m.practice_select()}</small>{/if}
 	<LocalizedSelect
 		label={m.practice_select()}
 		value={practice}
@@ -511,58 +526,152 @@
 									aria-pressed={paused}
 									title={paused ? m.paused() : m.pause()}
 								>
-									<Pause />
+									{#if paused}<Play />{:else}<Pause />{/if}
 								</Button>
 							{/snippet}
 						</DropdownMenu.Trigger>
 						<DropdownMenu.Content class="session-menu" align="end" sideOffset={12}>
 							<DropdownMenu.Group aria-label={m.paused()}>
 								<DropdownMenu.Item onSelect={toggle}><Play />{m.resume()}</DropdownMenu.Item>
+								{#if stage === 'practice'}<DropdownMenu.Item onSelect={resetPractice}>
+										<RotateCcw />{m.restart_practice()}
+									</DropdownMenu.Item>{/if}
 								<DropdownMenu.Item onSelect={stage === 'practice' ? onexit : finish}>
 									<Square />{stage === 'practice' ? m.back_setup() : m.finish()}
 								</DropdownMenu.Item>
 							</DropdownMenu.Group>
 						</DropdownMenu.Content>
 					</DropdownMenu.Root>
-					<DropdownMenu.Root>
-						<DropdownMenu.Trigger>
-							{#snippet child({ props })}
-								<Button
-									{...props}
-									variant="ghost"
-									data-tracking={trackingLost ? 'lost' : (signal?.status ?? 'waiting')}
-									aria-label={trackingLabel}
-									title={trackingLabel}
-								>
-									<Scan data-icon="inline-start" /><span data-testid="feedback" role="status">
-										{trackingLabel}
-									</span>
-								</Button>
-							{/snippet}
-						</DropdownMenu.Trigger>
-						<DropdownMenu.Content class="session-menu tracking-help" align="end" sideOffset={12}>
-							<p>{cue(activeId)}</p>
-						</DropdownMenu.Content>
-					</DropdownMenu.Root>
 					{#if stage === 'practice'}
+						<div class="practice-picker">{@render selector(true)}</div>
 						<Button
-							variant="ghost"
 							size="icon-lg"
-							aria-label={m.restart_practice()}
-							title={m.restart_practice()}
-							onclick={resetPractice}
+							disabled={!loaded}
+							aria-label={m.start_workout()}
+							title={m.start_workout()}
+							onclick={start}
 						>
-							<RotateCcw />
+							<Play />
 						</Button>
-						<Button
-							variant="ghost"
-							size="icon-lg"
-							aria-label={m.back_setup()}
-							title={m.back_setup()}
-							onclick={onexit}
+					{:else}
+						<Popover.Root onOpenChange={pauseForDetails}>
+							<Popover.Trigger>
+								{#snippet child({ props })}
+									<Button
+										{...props}
+										variant="ghost"
+										aria-label={m.setup_rounds()}
+										title={m.setup_rounds()}
+										data-testid="round-control"
+									>
+										<Repeat2 data-icon="inline-start" />{currentRound}/{roundGoal ?? '∞'}
+									</Button>
+								{/snippet}
+							</Popover.Trigger>
+							<Popover.Content
+								class="session-menu"
+								align="end"
+								sideOffset={8}
+								aria-label={m.setup_rounds()}
+							>
+								{#if roundGoal !== null}
+									<p class="detail-title">{m.setup_rounds()}</p>
+									<div class="round-adjuster">
+										<Button
+											variant="outline"
+											size="icon-lg"
+											aria-label={m.decrease_rounds()}
+											disabled={roundGoal <= currentRound}
+											onclick={() => changeRounds(-1)}
+										>
+											<Minus />
+										</Button>
+										<output aria-label={m.setup_rounds()}>{roundGoal}</output>
+										<Button
+											variant="outline"
+											size="icon-lg"
+											aria-label={m.increase_rounds()}
+											disabled={roundGoal >= Number.MAX_SAFE_INTEGER}
+											onclick={() => changeRounds(1)}
+										>
+											<Plus />
+										</Button>
+									</div>
+								{:else}<p class="detail-title">{m.setup_budget()}</p>
+									<p>
+										{workout.repeat && 'duration' in workout.repeat
+											? clock(workout.repeat.duration)
+											: ''}
+									</p>{/if}
+							</Popover.Content>
+						</Popover.Root>
+						<Popover.Root onOpenChange={pauseForDetails}>
+							<Popover.Trigger>
+								{#snippet child({ props })}
+									<Button
+										{...props}
+										variant="ghost"
+										aria-label={m.setup_steps()}
+										title={m.setup_steps()}
+										data-testid="step-control"
+									>
+										<ListOrdered data-icon="inline-start" />{currentStep}/{workout.steps.length}
+									</Button>
+								{/snippet}
+							</Popover.Trigger>
+							<Popover.Content
+								class="session-menu circuit-menu"
+								align="end"
+								sideOffset={8}
+								aria-label={m.setup_circuit()}
+							>
+								<p class="detail-title">{m.setup_circuit()}</p>
+								<ol>
+									{#each workout.steps as step, i (i)}
+										<li aria-current={i + 1 === currentStep ? 'step' : undefined}>
+											<span class="step-number">{String(i + 1).padStart(2, '0')}</span>
+											<div class="circuit-exercise">
+												<strong>
+													{'exercise' in step ? name(step.exercise) : m.rest_title()}
+												</strong>{#if 'exercise' in step}<span>
+														{'reps' in step
+															? m.setup_reps()
+															: 'hold' in step
+																? m.setup_hold()
+																: m.setup_interval()}
+													</span>{/if}
+											</div>
+											<Badge variant="secondary">
+												{#if 'rest' in step}<Coffee data-icon="inline-start" />{/if}{'reps' in step
+													? step.reps
+													: m.setup_s({
+															n:
+																'hold' in step
+																	? step.hold
+																	: 'rest' in step
+																		? step.rest
+																		: step.duration
+														})}
+											</Badge>
+										</li>
+									{/each}
+								</ol>
+							</Popover.Content>
+						</Popover.Root>
+						<span
+							class="session-time"
+							aria-label={`${m.active_time()}: ${elapsed}`}
+							data-testid="workout-clock"
 						>
-							<ArrowLeft />
-						</Button>
+							{elapsed}
+						</span>
+						{#if circuit !== null}<span
+								class="session-time"
+								data-testid="circuit-clock"
+								aria-label={m.circuit_left({ time: clock(circuit) })}
+							>
+								{clock(circuit)}
+							</span>{/if}
 					{/if}
 				</div>
 				{#if error}
@@ -573,33 +682,27 @@
 						</Alert.Description>
 					</Alert.Root>
 				{:else if !loaded}<p role="status">{m.loading()}</p>{/if}
-				{#if stage === 'practice'}
-					<div class="practice-actions">
-						<div class="practice-picker">{@render selector()}</div>
-						<Button size="lg" disabled={!loaded} onclick={start}>
-							<Play data-icon="inline-start" />{m.start_workout()}
-						</Button>
-					</div>
-				{:else}
-					<div class="session-meta">
-						<span data-testid="position">
-							{stage === 'countdown'
-								? m.position({ round: 1, step: 1, total: workout.steps.length })
-								: position}
-						</span>
-						<span>{m.active_time()} {elapsed}</span>
-						{#if circuit !== null}<span data-testid="circuit-clock">
-								{m.circuit_left({ time: clock(circuit) })}
-							</span>{/if}
-					</div>
-				{/if}
 			</div>
+			{#if trackingLost}<div
+					class="pane tracking-warning"
+					data-testid="tracking-warning"
+					role="status"
+				>
+					<Scan />{m.lost()}
+				</div>{/if}
+			<span class="sr-only" data-testid="feedback" role="status">{feedback(activeId, signal)}</span>
 			<div class="exercise-deck">
 				<header class="pane identity" data-testid="current-exercise">
-					<small>{stage === 'practice' ? m.practice_title() : m.current_exercise()}</small>
-					<h1 tabindex="-1" {@attach focusTitle}>
-						{stage === 'countdown' ? m.ready() : stage === 'rest' ? m.rest_title() : name(activeId)}
-					</h1>
+					<div class="exercise-name">
+						<small>{stage === 'practice' ? m.practice_title() : m.current_exercise()}</small>
+						<h1 tabindex="-1" {@attach focusTitle}>
+							{stage === 'countdown'
+								? m.ready()
+								: stage === 'rest'
+									? m.rest_title()
+									: name(activeId)}
+						</h1>
+					</div>
 					{#if stage === 'practice' || stage === 'exercise'}<Demo exercise={activeId} docked />
 					{:else if stage === 'rest' && next}<p data-testid="next">
 							{m.next_ex({ exercise: name(next) })}
@@ -627,7 +730,6 @@
 								</span>{:else}{interval || readout}{/if}
 						</div>{/key}
 					{#if stage === 'exercise' && interval}<strong>{intervalCount}</strong>{/if}
-					{#if paused}<span class="paused-label" role="status">{m.paused()}</span>{/if}
 				</div>
 			</div>
 		</div>
@@ -833,20 +935,16 @@
 		font-size: clamp(3.5rem, 6.5vw, 7rem);
 		white-space: nowrap;
 	}
-	.telemetry strong,
-	.paused-label {
+	.telemetry strong {
 		font-size: clamp(1.1rem, 1.8vw, 1.75rem);
-	}
-	.paused-label {
-		color: var(--signal);
 	}
 	.command {
 		color-scheme: dark;
 		background: var(--ink);
 		color: var(--foreground);
 		width: fit-content;
-		max-width: min(100%, 34rem);
-		padding: 0.5rem;
+		max-width: 100%;
+		padding: 0.25rem;
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
@@ -861,13 +959,24 @@
 		min-height: 2.75rem;
 		flex-shrink: 0;
 	}
-	.toolbar :global([data-tracking]) {
-		flex-shrink: 1;
-		white-space: normal;
-		height: auto;
+	.session-time {
+		padding-inline: 0.5rem;
+		font-size: 0.875rem;
+		font-variant-numeric: tabular-nums;
+		white-space: nowrap;
 	}
-	.toolbar :global([data-tracking='lost']) {
+	.tracking-warning {
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
+		padding: 0.75rem 1rem;
+		background: var(--ink);
 		color: #ffb4a7;
+		font-weight: 600;
+	}
+	.tracking-warning :global(svg) {
+		width: 1.25rem;
+		height: 1.25rem;
 	}
 	.hud :global(.session-menu) {
 		min-width: 13rem;
@@ -897,28 +1006,62 @@
 		width: 1.25rem;
 		height: 1.25rem;
 	}
-	.practice-actions {
-		display: flex;
-		align-items: flex-end;
-		gap: 0.75rem;
-		padding: 0.25rem;
-	}
 	.practice-picker {
+		min-width: 0;
+		width: clamp(8rem, 30vw, 14rem);
+	}
+	.round-adjuster {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		padding: 0.5rem;
+	}
+	.round-adjuster output {
+		font-size: 2rem;
+		font-variant-numeric: tabular-nums;
+	}
+	.hud .detail-title {
+		margin: 0 0 0.5rem;
+		padding: 0.5rem;
+		font-weight: 700;
+	}
+	.hud :global(.circuit-menu) {
+		width: min(25rem, calc(100vw - 2rem));
+		max-height: min(65dvh, 32rem);
+		overflow-y: auto;
+	}
+	.hud :global(.circuit-menu ol) {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+	.hud :global(.circuit-menu li) {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		padding: 0.75rem 0.5rem;
+		border-bottom: 1px solid var(--border);
+	}
+	.hud :global(.circuit-menu li[aria-current='step']) {
+		background: var(--accent);
+		border-radius: 0.5rem;
+	}
+	.step-number {
+		font-family: monospace;
+		font-size: 0.8rem;
+		color: var(--muted-foreground);
+	}
+	.circuit-exercise {
 		display: flex;
 		min-width: 0;
 		flex: 1;
 		flex-direction: column;
-		gap: 0.35rem;
+		gap: 0.2rem;
 	}
-	.session-meta {
-		display: flex;
-		flex-wrap: wrap;
-		justify-content: flex-end;
-		gap: 0.3rem 1rem;
-		padding: 0.3rem 0.5rem;
-		font-size: 0.8rem;
-		color: #d0d7db;
-		font-variant-numeric: tabular-nums;
+	.circuit-exercise span {
+		font-size: 0.75rem;
+		color: var(--muted-foreground);
 	}
 	.tracking-shade {
 		position: fixed;
@@ -940,15 +1083,34 @@
 	@media (max-width: 900px) {
 		.exercise-deck {
 			width: 100%;
-			grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+			grid-template-columns: minmax(0, 1fr) minmax(min-content, 1fr);
 			gap: 0.5rem;
+		}
+		.identity {
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) minmax(3.5rem, 0.7fr);
+			align-items: center;
+			gap: 0.5rem;
+		}
+		.exercise-name {
+			min-width: 0;
 		}
 		.pane {
 			padding: 0.9rem;
 		}
+		.exercise-deck .pane {
+			padding: 0.65rem;
+		}
+		.exercise-deck :is(h1, small, strong, p) {
+			display: block;
+			min-width: 0;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
 		.hud h1 {
 			font-size: clamp(1.7rem, 6vw, 2.6rem);
-			margin-bottom: 0.75rem;
+			margin: 0.3rem 0 0;
 		}
 		.hud small {
 			font-size: 0.7rem;
@@ -958,17 +1120,18 @@
 			font-size: clamp(2rem, 7.8vw, 3.5rem);
 		}
 		.command {
-			padding: 0.4rem;
+			padding: 0.25rem;
 		}
 		.toolbar {
 			gap: 0;
 		}
-		.practice-actions {
-			gap: 0.5rem;
-			flex-wrap: wrap;
+		.toolbar :global(button[data-popover-trigger]) {
+			gap: 0.25rem;
+			padding-inline: 0.5rem;
 		}
-		.practice-picker {
-			flex-basis: 9rem;
+		.session-time {
+			padding-inline: 0.3rem;
+			font-size: 0.75rem;
 		}
 	}
 	@media (max-height: 480px) and (orientation: landscape) {
