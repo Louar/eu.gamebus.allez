@@ -66,7 +66,7 @@
 	let rest = $state<number | undefined>(seed.rest ?? 0);
 	let model = $state<'mediapipe' | 'movenet'>(untrack(() => planner?.model ?? 'mediapipe')),
 		edit = $state(false);
-	const sound = untrack(() => planner?.sound ?? false);
+	const sound = untrack(() => planner?.sound ?? true);
 	let invalid = $state(false),
 		tooLong = $state(false);
 	let form: HTMLFormElement;

@@ -12,7 +12,7 @@
 	let {
 		model,
 		cameraId = $bindable(''),
-		sound = $bindable(false),
+		sound = $bindable(true),
 		onmodelchange,
 		onopenchange,
 		compact = false

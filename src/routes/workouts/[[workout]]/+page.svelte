@@ -29,7 +29,7 @@
 		// eslint-disable-next-line svelte/no-navigation-without-resolve -- Current URL already includes the app base path.
 		void replaceState(url, page.state);
 	}
-	let sound = $state(false);
+	let sound = $state(true);
 	let plannerQuery = $derived<`?${string}` | ''>(
 		workout
 			? `?${new URLSearchParams({ workout: encodeWorkout(workout), model, sound: sound ? '1' : '0' })}`
@@ -38,7 +38,7 @@
 
 	afterNavigate(({ type, from }) => {
 		document.documentElement.lang = getLocale();
-		sound = page.url.searchParams.get('sound') === '1';
+		sound = page.url.searchParams.get('sound') !== '0';
 		model = page.url.searchParams.get('model') === 'movenet' ? 'movenet' : 'mediapipe';
 		const encoded = page.params.workout;
 		invalid = false;

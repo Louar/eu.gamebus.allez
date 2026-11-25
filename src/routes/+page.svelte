@@ -10,14 +10,14 @@
 		error = $state(''),
 		ready = $state(false);
 	let model = $state<'mediapipe' | 'movenet'>('mediapipe'),
-		sound = $state(false);
+		sound = $state(true);
 	let locale = $state<'nl' | 'en'>('en');
 	onMount(() => {
 		locale = getLocale();
 		document.documentElement.lang = locale;
 		const params = new URL(location.href).searchParams;
 		model = params.get('model') === 'movenet' ? 'movenet' : 'mediapipe';
-		sound = params.get('sound') === '1';
+		sound = params.get('sound') !== '0';
 		const encoded = params.get('workout');
 		if (encoded !== null) {
 			try {
