@@ -60,6 +60,18 @@ export function camera(
 				video: { facingMode: 'user', width: { ideal: 960 }, height: { ideal: 720 } },
 				audio: false
 			});
+			const track = stream.getVideoTracks()[0];
+			const capabilities = track?.getCapabilities?.() as
+				(MediaTrackCapabilities & { zoom?: { min: number } }) | undefined;
+			if (capabilities?.zoom) {
+				try {
+					await track.applyConstraints({
+						advanced: [{ zoom: capabilities.zoom.min } as MediaTrackConstraintSet]
+					});
+				} catch {
+					// Zoom is optional; keep the camera usable if the device rejects it.
+				}
+			}
 			if (closed) {
 				close();
 				return false;

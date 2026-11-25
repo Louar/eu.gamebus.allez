@@ -358,7 +358,7 @@
 {#snippet preview()}
 	<video {@attach attachCamera} muted autoplay playsinline aria-label={m.preview()}></video>
 	{#if image && !paused && stage !== 'rest'}<div class="overlay">
-			<Skeleton frame={image} cover={immersive} />
+			<Skeleton frame={image} />
 		</div>{/if}
 	{#if !image && (replay || !loaded)}<Scan class="scan" aria-hidden="true" />{/if}
 {/snippet}
@@ -780,9 +780,6 @@
 		min-height: 0;
 		aspect-ratio: auto;
 		border-radius: 0;
-	}
-	.backdrop video {
-		object-fit: cover;
 	}
 	.hud {
 		--gutter: clamp(0.7rem, 2.2vw, 2rem);
