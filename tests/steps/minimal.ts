@@ -48,6 +48,37 @@ Given('I open a minimal timed squat link as a new visitor', async ({ page, baseU
 	await expect(page).toHaveURL(url);
 });
 
+Given('I open a minimal squat link with a 45-second workout limit', async ({ page, baseURL }) => {
+	const encoded = encodeWorkout({
+		v: 1,
+		steps: [{ exercise: 'squat', duration: 15 }],
+		repeat: { duration: 45 }
+	});
+	await page.goto(`${baseURL}workouts/${encoded}/`);
+});
+
+Then('the workout status shows only the countdown and current round', async ({ page }) => {
+	const rounds = page.getByTestId('round-control');
+	const clock = page.getByTestId('circuit-clock');
+	await expect(rounds).toHaveText('1');
+	await expect(rounds).toHaveJSProperty('tagName', 'SPAN');
+	await expect(clock).toHaveText('00:45');
+	await expect(clock.locator('svg.lucide-hourglass')).toHaveCount(1);
+	await expect(page.getByTestId('workout-clock')).toHaveCount(0);
+	expect(
+		await clock.evaluate((node) => ({
+			previous: node.previousElementSibling?.getAttribute('aria-label'),
+			next: node.nextElementSibling?.getAttribute('data-testid')
+		}))
+	).toEqual({ previous: 'Pause', next: 'round-control' });
+	await expect(page.getByTestId('session-controls')).toBeInViewport({ ratio: 1 });
+	await page.evaluate(() =>
+		(window as typeof window & { __alez: { advance(s: number): void } }).__alez.advance(15)
+	);
+	await expect(rounds).toHaveText('2');
+	await expect(clock).toHaveText('00:30');
+});
+
 When('I reload the shared workout path', async ({ page }) => {
 	const response = await page.reload();
 	expect(response).not.toBeNull();
@@ -225,25 +256,16 @@ Then('the immersive timed workout HUD fits the viewport', async ({ page }) => {
 	}
 });
 
-Then('I can adjust rounds and inspect the read-only circuit while paused', async ({ page }) => {
+Then('rounds are read-only and I can inspect the circuit while paused', async ({ page }) => {
 	const pause = page.getByRole('button', { name: 'Pause', exact: true });
 	const rounds = page.getByTestId('round-control');
 	await expect(rounds).toHaveText('1/1');
+	await expect(rounds).toHaveJSProperty('tagName', 'SPAN');
 	await rounds.click();
-	await expect(pause).toHaveAttribute('aria-pressed', 'true');
-	await expect(page.getByRole('button', { name: 'Decrease rounds' })).toBeDisabled();
-	await page.getByRole('button', { name: 'Increase rounds' }).click();
-	await expect(rounds).toHaveText('1/2');
-	await page.getByRole('button', { name: 'Increase rounds' }).click();
-	await page.getByRole('button', { name: 'Decrease rounds' }).click();
-	await expect(rounds).toHaveText('1/2');
-	await page.keyboard.press('Escape');
-	await pause.click();
-	await page.getByRole('menuitem', { name: 'Resume', exact: true }).click();
-	await page.evaluate(() =>
-		(window as typeof window & { __alez: { advance(s: number): void } }).__alez.advance(15)
-	);
-	await expect(rounds).toHaveText('2/2');
+	await expect(pause).toHaveAttribute('aria-pressed', 'false');
+	await expect(page.getByRole('dialog')).toHaveCount(0);
+	await expect(page.getByTestId('circuit-clock')).toHaveCount(0);
+	await expect(page.getByTestId('workout-clock').locator('svg.lucide-timer')).toHaveCount(1);
 	await page.getByTestId('step-control').click();
 	await expect(pause).toHaveAttribute('aria-pressed', 'true');
 	const circuit = page.getByRole('dialog', { name: 'Your circuit' });
@@ -256,9 +278,6 @@ Then('I can adjust rounds and inspect the read-only circuit while paused', async
 	);
 	await expect(page.getByTestId('counter')).toContainText('00:15');
 	await page.keyboard.press('Escape');
-	await rounds.click();
-	await expect(page.getByRole('button', { name: 'Decrease rounds' })).toBeDisabled();
-	await page.keyboard.press('Escape');
 	await pause.click();
 	await page.getByRole('menuitem', { name: 'Resume', exact: true }).click();
 	await page.evaluate(() =>
@@ -268,7 +287,7 @@ Then('I can adjust rounds and inspect the read-only circuit while paused', async
 });
 
 Then('I can toggle workout sound without interrupting the exercise', async ({ page }) => {
-	await page.getByRole('button', { name: 'Studio settings', exact: true }).click();
+	await page.getByRole('button', { name: 'Settings', exact: true }).click();
 	const sound = page.getByRole('menuitemcheckbox', { name: 'Sound cues', exact: true });
 	const stage = page.getByTestId('stage');
 	await expect(sound).toHaveAttribute('aria-checked', 'false');

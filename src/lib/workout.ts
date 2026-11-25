@@ -19,12 +19,13 @@ export type Workout = {
 
 export const example: Workout = {
 	v: 1,
-	rest: 15,
+	rest: 5,
 	steps: [
-		{ exercise: 'squat', reps: 10 },
-		{ exercise: 'jumping-jack', duration: 20 },
+		{ exercise: 'squat', reps: 5 },
+		{ exercise: 'plank', hold: 15 },
 		{ rest: 10 },
-		{ exercise: 'plank', hold: 30 }
+		{ exercise: 'jumping-jack', duration: 15 },
+		{ exercise: 'burpee', reps: 5 }
 	],
 	repeat: { rounds: 3 }
 };

@@ -56,10 +56,21 @@ Feature: Portable minimal workout paths on a static Pages site
     When I perform 1 cycle of "squat"
     Then the lost tracking overlay is hidden
 
-  Scenario: Round and step controls pause without discarding progress
+  Scenario: Rounds are read-only and circuit inspection pauses without discarding progress
     Given I open a minimal timed squat link as a new visitor
     When I enable the workout camera and start the countdown
-    Then I can adjust rounds and inspect the read-only circuit while paused
+    Then rounds are read-only and I can inspect the circuit while paused
+
+  Scenario Outline: Time-based workouts show only the remaining workout time
+    Given my screen is <width> by <height> and I prefer reduced motion
+    And I open a minimal squat link with a 45-second workout limit
+    When I enable the workout camera and start the countdown
+    Then the workout status shows only the countdown and current round
+
+    Examples:
+      | width | height |
+      | 320   | 640    |
+      | 1440  | 900    |
 
   Scenario: Sound can be changed during a workout
     Given I open a minimal timed squat link as a new visitor

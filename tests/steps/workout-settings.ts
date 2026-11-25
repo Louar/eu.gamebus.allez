@@ -5,7 +5,7 @@ import { encodeWorkout } from '../../src/lib/workout';
 const { Given, When, Then } = createBdd();
 
 Then('I can enable sound in the preview settings', async ({ page }) => {
-	await page.getByRole('button', { name: 'Studio settings', exact: true }).click();
+	await page.getByRole('button', { name: 'Settings', exact: true }).click();
 	const sound = page.getByRole('menuitemcheckbox', { name: 'Sound cues', exact: true });
 	await expect(sound).not.toBeChecked();
 	await sound.click();
@@ -15,7 +15,7 @@ Then('I can enable sound in the preview settings', async ({ page }) => {
 
 Then('I can toggle sound from the live settings', async ({ page }) => {
 	await expect(page.getByRole('button', { name: 'Sound cues', exact: true })).toHaveCount(0);
-	await page.getByRole('button', { name: 'Studio settings', exact: true }).click();
+	await page.getByRole('button', { name: 'Settings', exact: true }).click();
 	const sound = page.getByRole('menuitemcheckbox', { name: 'Sound cues', exact: true });
 	await expect(sound).toBeChecked();
 	await sound.click();
@@ -45,18 +45,18 @@ Given('a workout with two available cameras', async ({ page }) => {
 });
 
 Then('I can select a camera and model from the preview settings', async ({ page }) => {
-	await page.getByRole('button', { name: 'Studio settings', exact: true }).click();
+	await page.getByRole('button', { name: 'Settings', exact: true }).click();
 	await page.getByRole('menuitem', { name: 'Camera', exact: true }).click();
 	await page.getByRole('menuitemradio', { name: 'USB camera', exact: true }).click();
-	await expect(page.getByRole('button', { name: 'Studio settings' })).toHaveAttribute(
+	await expect(page.getByRole('button', { name: 'Settings' })).toHaveAttribute(
 		'aria-expanded',
 		'false'
 	);
-	await page.getByRole('button', { name: 'Studio settings', exact: true }).click();
+	await page.getByRole('button', { name: 'Settings', exact: true }).click();
 	await page.getByRole('menuitem', { name: 'Model', exact: true }).click();
 	await page.getByRole('menuitemradio', { name: /MoveNet/ }).click();
 	await expect(page).toHaveURL(/model=movenet/);
-	await expect(page.getByRole('button', { name: 'Studio settings' })).toHaveAttribute(
+	await expect(page.getByRole('button', { name: 'Settings' })).toHaveAttribute(
 		'aria-expanded',
 		'false'
 	);
@@ -70,18 +70,18 @@ When('I enter practice with the selected settings', async ({ page }) => {
 });
 
 Then('I can change settings without leaving practice', async ({ page }) => {
-	await page.getByRole('button', { name: 'Studio settings', exact: true }).click();
+	await page.getByRole('button', { name: 'Settings', exact: true }).click();
 	await page.getByRole('menuitem', { name: 'Camera', exact: true }).click();
 	await expect(page.getByRole('menuitemradio', { name: 'USB camera' })).toHaveAttribute(
 		'aria-checked',
 		'true'
 	);
 	await page.getByRole('menuitemradio', { name: 'Front camera' }).click();
-	await expect(page.getByRole('button', { name: 'Studio settings' })).toHaveAttribute(
+	await expect(page.getByRole('button', { name: 'Settings' })).toHaveAttribute(
 		'aria-expanded',
 		'false'
 	);
-	await page.getByRole('button', { name: 'Studio settings', exact: true }).click();
+	await page.getByRole('button', { name: 'Settings', exact: true }).click();
 	await page.getByRole('menuitem', { name: 'Model', exact: true }).click();
 	await expect(page.getByRole('menuitemradio', { name: /MoveNet/ })).toHaveAttribute(
 		'aria-checked',
@@ -89,7 +89,7 @@ Then('I can change settings without leaving practice', async ({ page }) => {
 	);
 	await page.getByRole('menuitemradio', { name: /MediaPipe/ }).click();
 	await expect(page).toHaveURL(/model=mediapipe/);
-	await expect(page.getByRole('button', { name: 'Studio settings' })).toHaveAttribute(
+	await expect(page.getByRole('button', { name: 'Settings' })).toHaveAttribute(
 		'aria-expanded',
 		'false'
 	);
@@ -108,7 +108,7 @@ Then('changing the model pauses the workout without discarding progress', async 
 	await advance(5);
 	await expect(page.getByTestId('stage')).toHaveAttribute('data-stage', 'exercise');
 	await expect(page.getByTestId('workout-clock')).toHaveText('00:02');
-	await page.getByRole('button', { name: 'Studio settings', exact: true }).click();
+	await page.getByRole('button', { name: 'Settings', exact: true }).click();
 	await page.getByRole('menuitem', { name: 'Model', exact: true }).click();
 	await page.getByRole('menuitemradio', { name: /MediaPipe/ }).click();
 	await expect(page).toHaveURL(/model=mediapipe/);

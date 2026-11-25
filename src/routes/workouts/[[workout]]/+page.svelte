@@ -3,18 +3,19 @@
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as Card from '#lib/components/ui/card/index.js';
 	import Live from '#lib/Live.svelte';
-	import WorkoutSettings from '#lib/WorkoutSettings.svelte';
 	import { randomWorkout } from '#lib/minimal-workout.js';
 	import { updateLocked } from '#lib/offline.js';
 	import * as m from '#lib/paraglide/messages.js';
 	import { getLocale } from '#lib/paraglide/runtime.js';
 	import { name, reps } from '#lib/words.js';
 	import { decodeWorkout, encodeWorkout, type Workout } from '#lib/workout.js';
+	import WorkoutSettings from '#lib/WorkoutSettings.svelte';
 	import { afterNavigate, goto, replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import Camera from '@lucide/svelte/icons/camera';
+	import ShieldCheck from '@lucide/svelte/icons/shield-check';
 
 	let workout = $state.raw<Workout | null>(null);
 	let entered = $state(false),
@@ -82,35 +83,30 @@
 			data-testid="workout-preview"
 		>
 			<Card.Root
-				class="w-full max-w-xl [--card-spacing:clamp(1.5rem,5vw,3rem)] [--card:var(--studio-paper)]"
+				class="w-full max-w-xl  [--card:var(--studio-paper)]"
 			>
 				<Card.Header>
 					{#if workout}
 						<Card.Action>
-							<WorkoutSettings
-								compact
-								{model}
-								bind:cameraId
-								bind:sound
-								onmodelchange={changeModel}
-							/>
+							<WorkoutSettings {model} bind:cameraId bind:sound onmodelchange={changeModel} />
 						</Card.Action>
 					{/if}
-					<p class="font-mono text-xs font-bold tracking-[0.12em] text-studio-rust uppercase">
-						{m.brand()} / {m.private_session()}
-					</p>
 					<Card.Title>
-						<h1
-							class="text-[clamp(2.5rem,6vw,3.6rem)] leading-[1.05] font-[750] tracking-[-0.055em]"
-						>
+						<h1 class="text-[clamp(1.5rem,5vw,2rem)] leading-[1.05] font-[750] tracking-[-0.055em]">
 							{workout ? m.setup_circuit() : m.live()}
 						</h1>
 					</Card.Title>
-					{#if workout}<Card.Description>{m.camera_entry()}</Card.Description>{/if}
 				</Card.Header>
 				<Card.Content>
 					{#if workout}
-						<ol class="mb-3">
+						<p class="text-xs text-muted-foreground">
+							{workout.repeat && 'duration' in workout.repeat
+								? `${m.setup_time()}: ${m.setup_s({ n: workout.repeat.duration })}`
+								: `${m.setup_rounds()}: ${workout.repeat?.rounds ?? 1}`} · {m.setup_auto_short()}: {m.setup_s(
+								{ n: workout.rest ?? 0 }
+							)}
+						</p>
+						<ol>
 							{#each workout.steps as step, i (i)}
 								<li class="flex flex-wrap items-baseline gap-3 border-b py-2.5">
 									<span
@@ -130,33 +126,41 @@
 								</li>
 							{/each}
 						</ol>
-						<p class="text-xs text-muted-foreground">
-							{workout.repeat && 'duration' in workout.repeat
-								? `${m.setup_time()}: ${m.setup_s({ n: workout.repeat.duration })}`
-								: `${m.setup_rounds()}: ${workout.repeat?.rounds ?? 1}`} · {m.setup_auto_short()}: {m.setup_s(
-								{ n: workout.rest ?? 0 }
-							)}
-						</p>
 					{:else}
 						<Alert.Root variant="destructive">
 							<Alert.Description>{m.invalid_link()}</Alert.Description>
 						</Alert.Root>
 					{/if}
 				</Card.Content>
-				<Card.Footer class="flex-wrap gap-3">
-					<Button variant="outline" href={resolve(`/${plannerQuery}`)}>
-						<ArrowLeft data-icon="inline-start" />{m.back_setup()}
-					</Button>
-					{#if workout}
+				<Card.Footer class="flex w-full  flex-col gap-3">
+					<div class="flex w-full flex-wrap justify-between gap-3 md:flex-nowrap">
 						<Button
 							size="lg"
-							class="ml-auto"
-							disabled={$updateLocked}
-							onclick={() => (entered = true)}
+							class="w-full md:w-fit"
+							variant="outline"
+							href={resolve(`/${plannerQuery}`)}
 						>
-							<Camera data-icon="inline-start" />{m.camera_enable()}
+							<ArrowLeft data-icon="inline-start" />{m.back_setup()}
 						</Button>
-					{/if}
+						{#if workout}
+							<Button
+								size="lg"
+								class="ml-auto w-full md:w-fit"
+								disabled={$updateLocked}
+								onclick={() => (entered = true)}
+							>
+								<Camera data-icon="inline-start" />{m.camera_enable()}
+							</Button>
+						{/if}
+					</div>
+					<Alert.Root
+						role="note"
+						class="w-full [--card-foreground:var(--privacy-foreground)] [--card:var(--privacy-background)] [--muted-foreground:var(--privacy-foreground)]"
+					>
+						<ShieldCheck />
+						<Alert.Title>{m.setup_privacy_title()}</Alert.Title>
+						<Alert.Description>{m.setup_privacy()}</Alert.Description>
+					</Alert.Root>
 				</Card.Footer>
 			</Card.Root>
 		</section>

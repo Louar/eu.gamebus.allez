@@ -31,8 +31,8 @@
 	import Square from '@lucide/svelte/icons/square';
 	import Repeat2 from '@lucide/svelte/icons/repeat-2';
 	import ListOrdered from '@lucide/svelte/icons/list-ordered';
-	import Plus from '@lucide/svelte/icons/plus';
-	import Minus from '@lucide/svelte/icons/minus';
+	import Hourglass from '@lucide/svelte/icons/hourglass';
+	import Timer from '@lucide/svelte/icons/timer';
 	import Coffee from '@lucide/svelte/icons/coffee';
 	let {
 		workout,
@@ -76,7 +76,7 @@
 		gone = false;
 	let activeId = $state<ExerciseId>(untrack(() => practice)),
 		position = $state(''),
-		circuit = $state<number | null>(null),
+		circuit = $state<number | null>(session.circuitRemaining),
 		next = $state<ExerciseId | null>(null),
 		readout = $state('');
 	let lastCapture = -Infinity,
@@ -88,12 +88,10 @@
 	let pauseMenu = $state(false);
 	let currentRound = $state(1),
 		currentStep = $state(1);
-	let roundGoal = $state(
-		untrack(() => {
-			const repeat = workout.repeat;
-			return repeat && 'duration' in repeat ? null : (repeat?.rounds ?? 1);
-		})
-	);
+	const roundGoal = untrack(() => {
+		const repeat = workout.repeat;
+		return repeat && 'duration' in repeat ? null : (repeat?.rounds ?? 1);
+	});
 	const trackingLost = $derived(
 		!paused && (stage === 'practice' || stage === 'exercise') && signal?.status === 'lost'
 	);
@@ -272,12 +270,6 @@
 	}
 	function pauseForDetails(open: boolean) {
 		if (open && !paused) toggle();
-	}
-	function changeRounds(delta: number) {
-		if (roundGoal !== null && session.setRounds(roundGoal + delta)) {
-			roundGoal += delta;
-			if (session.state !== 'ready') snapshot();
-		}
 	}
 	function start() {
 		paused = false;
@@ -502,16 +494,6 @@
 		<div class="hud">
 			<div class="pane command dark" data-testid="session-controls">
 				<div class="toolbar">
-					{#if onmodelchange}
-						<WorkoutSettings
-							compact
-							{model}
-							bind:cameraId
-							bind:sound
-							{onmodelchange}
-							onopenchange={pauseForDetails}
-						/>
-					{/if}
 					{#if stage !== 'practice'}<DropdownMenu.Root
 							bind:open={
 								() => pauseMenu,
@@ -527,7 +509,7 @@
 								{#snippet child({ props })}
 									<Button
 										{...props}
-										variant="ghost"
+										variant="default"
 										size="icon-lg"
 										aria-label={m.pause()}
 										aria-pressed={paused}
@@ -557,63 +539,27 @@
 							<Play data-icon="inline-start" />{m.start_workout()}
 						</Button>
 					{:else}
-						<Popover.Root onOpenChange={pauseForDetails}>
-							<Popover.Trigger>
-								{#snippet child({ props })}
-									<Button
-										{...props}
-										variant="ghost"
-										aria-label={m.setup_rounds()}
-										title={m.setup_rounds()}
-										data-testid="round-control"
-									>
-										<Repeat2 data-icon="inline-start" />{currentRound}/{roundGoal ?? '∞'}
-									</Button>
-								{/snippet}
-							</Popover.Trigger>
-							<Popover.Content
-								class="session-menu"
-								align="end"
-								sideOffset={8}
-								aria-label={m.setup_rounds()}
+						{#if circuit !== null}<span
+								class="session-time font-mono"
+								data-testid="circuit-clock"
+								aria-label={m.circuit_left({ time: clock(circuit) })}
 							>
-								{#if roundGoal !== null}
-									<p class="detail-title">{m.setup_rounds()}</p>
-									<div class="round-adjuster">
-										<Button
-											variant="outline"
-											size="icon-lg"
-											aria-label={m.decrease_rounds()}
-											disabled={roundGoal <= currentRound}
-											onclick={() => changeRounds(-1)}
-										>
-											<Minus />
-										</Button>
-										<output aria-label={m.setup_rounds()}>{roundGoal}</output>
-										<Button
-											variant="outline"
-											size="icon-lg"
-											aria-label={m.increase_rounds()}
-											disabled={roundGoal >= Number.MAX_SAFE_INTEGER}
-											onclick={() => changeRounds(1)}
-										>
-											<Plus />
-										</Button>
-									</div>
-								{:else}<p class="detail-title">{m.setup_budget()}</p>
-									<p>
-										{workout.repeat && 'duration' in workout.repeat
-											? clock(workout.repeat.duration)
-											: ''}
-									</p>{/if}
-							</Popover.Content>
-						</Popover.Root>
+								<Hourglass aria-hidden="true" />{clock(circuit)}
+							</span>{/if}
+						<span
+							class="session-time font-mono"
+							aria-label={m.setup_rounds()}
+							data-testid="round-control"
+						>
+							<Repeat2 aria-hidden="true" />{currentRound}{#if roundGoal !== null}/{roundGoal}{/if}
+						</span>
 						<Popover.Root onOpenChange={pauseForDetails}>
 							<Popover.Trigger>
 								{#snippet child({ props })}
 									<Button
 										{...props}
 										variant="ghost"
+										class="font-mono"
 										aria-label={m.setup_steps()}
 										title={m.setup_steps()}
 										data-testid="step-control"
@@ -661,20 +607,23 @@
 								</ol>
 							</Popover.Content>
 						</Popover.Root>
-						<span
-							class="session-time"
-							aria-label={`${m.active_time()}: ${elapsed}`}
-							data-testid="workout-clock"
-						>
-							{elapsed}
-						</span>
-						{#if circuit !== null}<span
-								class="session-time"
-								data-testid="circuit-clock"
-								aria-label={m.circuit_left({ time: clock(circuit) })}
+						{#if circuit === null}<span
+								class="session-time font-mono"
+								aria-label={`${m.active_time()}: ${elapsed}`}
+								data-testid="workout-clock"
 							>
-								{clock(circuit)}
+								<Timer aria-hidden="true" />{elapsed}
 							</span>{/if}
+					{/if}
+					{#if onmodelchange}
+						<WorkoutSettings
+							compact
+							{model}
+							bind:cameraId
+							bind:sound
+							{onmodelchange}
+							onopenchange={pauseForDetails}
+						/>
 					{/if}
 				</div>
 				{#if error}
@@ -969,10 +918,18 @@
 		flex-shrink: 0;
 	}
 	.session-time {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
 		padding-inline: 0.5rem;
 		font-size: 0.875rem;
 		font-variant-numeric: tabular-nums;
 		white-space: nowrap;
+	}
+	.session-time :global(svg) {
+		width: 1rem;
+		height: 1rem;
+		flex-shrink: 0;
 	}
 	.tracking-warning {
 		display: flex;
@@ -1029,17 +986,6 @@
 	.practice-picker :global(svg) {
 		width: 0.4em;
 		height: 0.4em;
-	}
-	.round-adjuster {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 1rem;
-		padding: 0.5rem;
-	}
-	.round-adjuster output {
-		font-size: 2rem;
-		font-variant-numeric: tabular-nums;
 	}
 	.hud .detail-title {
 		margin: 0 0 0.5rem;
