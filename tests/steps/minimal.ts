@@ -108,6 +108,40 @@ When('I enable the workout camera and start the countdown', async ({ page }) => 
 	);
 });
 
+When('I enable the camera for practice', async ({ page }) => {
+	await enable(page).click();
+	await expect(page.getByTestId('stage')).toHaveAttribute('data-stage', 'practice');
+});
+
+Then('the practice cards and controls fit the viewport', async ({ page }) => {
+	for (const id of ['session-controls', 'current-exercise', 'exercise-progress']) {
+		await expect(page.getByTestId(id)).toBeInViewport({ ratio: 1 });
+	}
+	await expect(page.getByRole('figure', { name: 'Movement guide' })).toBeVisible();
+	await expect(page.getByTestId('current-exercise')).not.toContainText('Movement guide');
+	const viewport = page.viewportSize()!;
+	expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+		viewport.width
+	);
+	const exercise = (await page.getByTestId('current-exercise').boundingBox())!;
+	const progress = (await page.getByTestId('exercise-progress').boundingBox())!;
+	if (viewport.width <= 900) {
+		expect(exercise.x + exercise.width).toBeLessThanOrEqual(progress.x);
+		expect(exercise.y).toBeCloseTo(progress.y, 0);
+	} else {
+		expect(exercise.y + exercise.height).toBeLessThanOrEqual(progress.y);
+		expect(exercise.x).toBeGreaterThan(viewport.width / 2);
+	}
+	await page.getByRole('button', { name: 'Pause', exact: true }).click();
+	await expect(page.getByRole('menu')).toHaveCount(0);
+	await page.getByRole('button', { name: 'Pause', exact: true }).click();
+	await page.getByRole('menuitem', { name: 'Resume', exact: true }).click();
+	await expect(page.getByRole('button', { name: 'Pause', exact: true })).toHaveAttribute(
+		'aria-pressed',
+		'false'
+	);
+});
+
 Then('the immersive timed workout HUD fits the viewport', async ({ page }) => {
 	const stage = page.getByTestId('stage');
 	await expect(stage).toHaveAttribute('data-stage', 'exercise');
@@ -124,9 +158,24 @@ Then('the immersive timed workout HUD fits the viewport', async ({ page }) => {
 	);
 	for (const item of [
 		page.getByTestId('counter'),
+		page.getByTestId('current-exercise'),
+		page.getByTestId('exercise-progress'),
 		page.getByRole('button', { name: 'Pause', exact: true })
 	]) {
 		await expect(item).toBeInViewport({ ratio: 1 });
+	}
+	await expect(page.getByTestId('current-exercise')).toContainText('Current exercise');
+	await expect(page.getByTestId('current-exercise')).not.toContainText(/Round|Step|Movement guide/);
+	await expect(page.getByTestId('exercise-progress')).not.toContainText('Workout time');
+	const exercise = (await page.getByTestId('current-exercise').boundingBox())!;
+	const progress = (await page.getByTestId('exercise-progress').boundingBox())!;
+	if (viewport.width <= 900) {
+		expect(exercise.x + exercise.width).toBeLessThanOrEqual(progress.x);
+		expect(exercise.y).toBeCloseTo(progress.y, 0);
+	} else {
+		expect(exercise.y + exercise.height).toBeLessThanOrEqual(progress.y);
+		expect(exercise.x).toBeCloseTo(progress.x, 0);
+		expect(exercise.x).toBeGreaterThan(viewport.width / 2);
 	}
 });
 
@@ -141,7 +190,10 @@ Then('I can toggle workout sound without interrupting the exercise', async ({ pa
 	await expect(sound).toHaveAttribute('aria-pressed', 'false');
 	await expect(stage).toHaveAttribute('data-stage', 'exercise');
 	await sound.click();
-	await page.getByRole('button', { name: 'Finish', exact: true }).click();
+	await page.getByRole('button', { name: 'Pause', exact: true }).click();
+	await expect(page.getByRole('menu')).toHaveCount(0);
+	await page.getByRole('button', { name: 'Pause', exact: true }).click();
+	await page.getByRole('menuitem', { name: 'Finish', exact: true }).click();
 	await page.getByRole('button', { name: 'Back to setup', exact: true }).click();
 	await expect(page.getByRole('switch', { name: 'Sound cues' })).toBeChecked();
 });

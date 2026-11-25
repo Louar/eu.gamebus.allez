@@ -47,8 +47,8 @@
 	});
 </script>
 
-<figure class:docked>
-	<figcaption><i></i>{m.demo()}</figcaption>
+<figure class:docked aria-label={m.demo()}>
+	{#if !docked}<figcaption><i></i>{m.demo()}</figcaption>{/if}
 	<div class="poses">
 		{#if reduced}{#each frames as pose, i (i)}<Skeleton frame={pose} demo />{/each}{:else}<Skeleton
 				{frame}
@@ -80,13 +80,19 @@
 	}
 	figure.docked {
 		position: static;
-		width: clamp(7rem, 20vw, 13rem);
-		flex: none;
+		width: 100%;
+		padding: 0;
+		border: 0;
+		background: transparent;
+		box-shadow: none;
 	}
 	.docked .poses {
-		height: clamp(3rem, 10dvh, 7rem);
+		height: clamp(5rem, 18dvh, 12rem);
 	}
 	@media (max-height: 450px) {
+		.docked .poses {
+			height: 3rem;
+		}
 		.docked .poses:has(:global(svg:nth-child(4))) :global(svg) {
 			height: 1.8rem;
 		}
@@ -115,8 +121,11 @@
 			grid-template-columns: repeat(4, minmax(0, 1fr));
 			height: auto;
 		}
-		.poses:has(:global(svg:nth-child(4))) :global(svg) {
+		figure:not(.docked) .poses:has(:global(svg:nth-child(4))) :global(svg) {
 			height: 3rem;
+		}
+		.docked .poses {
+			display: flex;
 		}
 	}
 </style>

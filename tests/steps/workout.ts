@@ -174,6 +174,13 @@ Then('the interval repetition count reads {string}', async ({ page }, text: stri
 Then('I see feedback {string}', async ({ page }, text: string) => {
 	await expect(page.getByTestId('feedback')).toContainText(text);
 });
+Then('the lost tracking overlay is visible', async ({ page }) => {
+	await expect(page.getByTestId('tracking-overlay')).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Tracking lost', exact: true })).toBeVisible();
+});
+Then('the lost tracking overlay is hidden', async ({ page }) => {
+	await expect(page.getByTestId('tracking-overlay')).toHaveCount(0);
+});
 Then('the circuit clock shows {string}', async ({ page }, text: string) => {
 	await expect(page.getByTestId('circuit-clock')).toContainText(text);
 });
@@ -198,12 +205,16 @@ When('I background the page for {int} seconds', async ({ page }, seconds: number
 		replay.advance(seconds);
 		replay.visibility(false);
 	}, seconds);
-	if (await button(page, 'Resume').isVisible()) await button(page, 'Resume').click();
+	if ((await button(page, 'Pause').getAttribute('aria-pressed')) === 'true') {
+		await button(page, 'Pause').click();
+		await page.getByRole('menuitem', { name: 'Resume', exact: true }).click();
+	}
 });
 When('I pause the workout for {int} seconds', async ({ page }, seconds: number) => {
 	await button(page, 'Pause').click();
 	await advance(page, seconds);
-	await button(page, 'Resume').click();
+	await button(page, 'Pause').click();
+	await page.getByRole('menuitem', { name: 'Resume', exact: true }).click();
 });
 When('I remember the current detector request', async ({ page }) => {
 	oldRequest.set(page, await page.evaluate(() => (window as ReplayWindow).__alez.epoch()));
@@ -346,8 +357,10 @@ When('I start the Dutch workout', async ({ page }) => {
 });
 Then('I can pause and resume in Dutch', async ({ page }) => {
 	await button(page, 'Pauzeren').click();
-	await button(page, 'Hervatten').click();
-	await expect(button(page, 'Afronden')).toBeVisible();
+	await button(page, 'Pauzeren').click();
+	await expect(page.getByRole('menuitem', { name: 'Afronden', exact: true })).toBeVisible();
+	await page.getByRole('menuitem', { name: 'Hervatten', exact: true }).click();
+	await expect(button(page, 'Pauzeren')).toBeVisible();
 });
 Then('the Dutch summary reports the squat result', async ({ page }) => {
 	await expect(page.getByTestId('result')).toContainText('2 / 2');

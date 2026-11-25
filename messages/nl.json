@@ -92,6 +92,7 @@
 	"duration_result": "Interval: {actual} / {target} s",
 	"local_blurb": "Bewegingsherkenning op je apparaat",
 	"live": "Training",
+	"current_exercise": "Huidige oefening",
 	"invalid_link": "Ongeldige trainingslink. Pas het circuit aan of open een andere link.",
 	"setup_kicker": "Trainingslab / 01",
 	"setup_title": "Trainingsstudio",

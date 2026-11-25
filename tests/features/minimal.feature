@@ -33,6 +33,27 @@ Feature: Portable minimal workout paths on a static Pages site
       | width | height |
       | 390   | 844    |
       | 844   | 390    |
+      | 1440  | 900    |
+
+  Scenario Outline: Practice uses the same uncluttered layout
+    Given my screen is <width> by <height> and I prefer reduced motion
+    And I open a minimal timed squat link as a new visitor
+    When I enable the camera for practice
+    Then the practice cards and controls fit the viewport
+
+    Examples:
+      | width | height |
+      | 390   | 844    |
+      | 844   | 390    |
+      | 1440  | 900    |
+
+  Scenario: Lost tracking shades the screen until tracking recovers
+    Given I open a minimal timed squat link as a new visitor
+    When I enable the workout camera and start the countdown
+    And the camera loses my pose
+    Then the lost tracking overlay is visible
+    When I perform 1 cycle of "squat"
+    Then the lost tracking overlay is hidden
 
   Scenario: Sound can be changed during a workout
     Given I open a minimal timed squat link as a new visitor

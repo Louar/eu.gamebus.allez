@@ -92,6 +92,7 @@
 	"duration_result": "Interval: {actual} / {target} s",
 	"local_blurb": "On-device motion tracking",
 	"live": "Workout",
+	"current_exercise": "Current exercise",
 	"invalid_link": "Invalid workout link. Edit the circuit or open another link.",
 	"setup_kicker": "Training lab / 01",
 	"setup_title": "Workout studio",
