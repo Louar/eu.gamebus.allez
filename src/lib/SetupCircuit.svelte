@@ -1,34 +1,34 @@
 <script lang="ts">
-	import { tick, untrack } from 'svelte';
-	import { flip } from 'svelte/animate';
-	import { dragHandleZone, dragHandle, type DndEvent } from 'svelte-dnd-action';
-	import { resolve } from '$app/paths';
-	import { goto } from '$app/navigation';
-	import { page } from '$app/state';
-	import LocalizedSelect from './LocalizedSelect.svelte';
-	import Offline from './Offline.svelte';
-	import { updateLocked } from './offline';
+	import * as Alert from '#lib/components/ui/alert/index.js';
+	import { Badge } from '#lib/components/ui/badge/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as Card from '#lib/components/ui/card/index.js';
 	import * as Field from '#lib/components/ui/field/index.js';
-	import * as Alert from '#lib/components/ui/alert/index.js';
 	import * as InputGroup from '#lib/components/ui/input-group/index.js';
-	import { Badge } from '#lib/components/ui/badge/index.js';
+	import * as m from '#lib/paraglide/messages.js';
 	import { cn } from '#lib/utils.js';
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import {
-		ArrowUpRight,
 		Check,
 		Coffee,
 		GripVertical,
 		Pencil,
+		Play,
 		Plus,
 		ShieldCheck,
 		Trash2
 	} from '@lucide/svelte';
-	import * as m from '#lib/paraglide/messages.js';
-	import { encodeWorkout, parseWorkout, type Workout } from './workout';
+	import { tick, untrack } from 'svelte';
+	import { dragHandle, dragHandleZone, type DndEvent } from 'svelte-dnd-action';
+	import { flip } from 'svelte/animate';
+	import LocalizedSelect from './LocalizedSelect.svelte';
+	import Offline from './Offline.svelte';
 	import { exercises, type ExerciseId } from './motion';
+	import { updateLocked } from './offline';
 	import { name } from './words';
+	import { encodeWorkout, parseWorkout, type Workout } from './workout';
 
 	let {
 		workout,
@@ -268,7 +268,7 @@
 						>
 							{mode === 'duration'
 								? m.setup_s({ n: budget ?? 0 })
-								: `${String(rounds).padStart(2, '0')} ×`}
+								: `${String(rounds).padStart(2, '0')}`}
 						</dd>
 					</div>
 					<div class="flex flex-col-reverse items-start gap-1 px-[clamp(8px,1.5vw,20px)]">
@@ -280,6 +280,24 @@
 						</dd>
 					</div>
 				</dl>
+
+				<div
+					class="flex flex-col items-stretch gap-2 max-[740px]:fixed max-[740px]:inset-x-0 max-[740px]:bottom-0 max-[740px]:z-10 max-[740px]:rounded-none max-[740px]:border-t max-[740px]:bg-background max-[740px]:px-4 max-[740px]:pt-3 max-[740px]:pb-[calc(0.75rem+env(safe-area-inset-bottom))] min-[741px]:mb-4"
+					data-testid="planner-start"
+				>
+					<Button
+						size="lg"
+						class="h-14 w-full text-lg gap-3 font-bold border-none shadow-md"
+						disabled={$updateLocked}
+						onclick={practice}
+					>
+						<Play data-icon="inline-start" class="size-5" aria-hidden="true" />
+						{planner ? m.start_workout() : m.setup_practice()}
+					</Button>
+					<div role="status" class="text-sm leading-relaxed empty:hidden">
+						{#if tooLong}{m.setup_too_long()}{/if}
+					</div>
+				</div>
 			{/if}
 			<ol
 				class="m-0 list-none divide-y divide-border p-0"
@@ -413,17 +431,6 @@
 						<Alert.Description>{m.setup_invalid()}</Alert.Description>
 					</Alert.Root>{/if}
 			</Card.Footer>{/if}
-		<Card.Footer
-			class="flex-col items-stretch gap-2 max-[740px]:fixed max-[740px]:inset-x-0 max-[740px]:bottom-0 max-[740px]:z-10 max-[740px]:rounded-none max-[740px]:border-t max-[740px]:bg-background max-[740px]:px-4 max-[740px]:pt-3 max-[740px]:pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
-			data-testid="planner-start"
-		>
-			<Button size="lg" class="w-full justify-between" disabled={$updateLocked} onclick={practice}>
-				{planner ? m.start_workout() : m.setup_practice()}<ArrowUpRight data-icon="inline-end" />
-			</Button>
-			<div role="status" class="text-sm leading-relaxed empty:hidden">
-				{#if tooLong}{m.setup_too_long()}{/if}
-			</div>
-		</Card.Footer>
 	</Card.Root>
 	<aside class="min-w-0" aria-labelledby={`${id}-settings-title`}>
 		<Card.Root>
