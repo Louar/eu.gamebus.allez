@@ -115,24 +115,28 @@ export function posture(id: ExerciseId, f: PoseFrame, ground?: number): Phase {
 			return 'closed';
 		if (feet > Math.max(0.55, breadth * 1.35)) {
 			if (id === 'jumping-jack' && both((arm, sh) => arm.y < sh.y - 0.46 * scale)) return 'open';
-			const dx = sides.map((v) => (p[`${v}_wrist`].x - p[`${v}_shoulder`].x) / scale);
-			// Oblique view: both arms project forward in the same horizontal direction.
-			if (
-				id === 'front-jack' &&
-				breadth < 0.82 &&
-				dx[0] * dx[1] > 0 &&
-				dx.every((v) => Math.abs(v) > 0.42) &&
-				both((arm, sh) => Math.abs(arm.y - sh.y) < 0.3 * scale)
-			)
-				return 'forward';
+			if (id === 'front-jack' && both((arm, sh) => Math.abs(arm.y - sh.y) < 0.3 * scale)) {
+				const dx = sides.map((v) => (p[`${v}_wrist`].x - p[`${v}_shoulder`].x) / scale);
+				// Oblique reaches project to the same side; head-on reaches foreshorten both arms.
+				if (dx[0] * dx[1] > 0 && dx.every((v) => Math.abs(v) > 0.2)) return 'forward';
+				if (
+					breadth > 0.35 &&
+					dx.every((v) => Math.abs(v) < 0.35) &&
+					sides.every((v) => dist(p[`${v}_elbow`], p[`${v}_shoulder`]) < scale * 0.4)
+				)
+					return 'forward';
+			}
 		}
 		return 'waiting';
 	}
 	if (id === 'squat' || id === 'squat-hold')
 		return squat ? 'lowered' : stand && id === 'squat' ? 'standing' : 'waiting';
 	if (id === 'sit-up') {
-		if (knee < 140 && a.y > k.y && h.y > k.y)
-			return floor ? 'lying' : upright ? 'seated' : 'waiting';
+		// A seated hip stays near ankle height, with either bent or extended legs.
+		if (Math.abs(h.y - a.y) < scale * 0.65 && Math.abs(a.x - h.x) > scale * 0.35) {
+			if (floor && (s.x - h.x) * (a.x - h.x) < 0) return 'lying';
+			if (upright) return 'seated';
+		}
 		return 'waiting';
 	}
 	if (id === 'burpee') {
@@ -168,6 +172,7 @@ export class Tracker implements ExerciseTracker {
 	private samples = 0;
 	private continuous = 0;
 	private ground?: number;
+	private lastTuck = -Infinity;
 	constructor(id: ExerciseId = 'squat') {
 		this.id = id;
 	}
@@ -180,6 +185,7 @@ export class Tracker implements ExerciseTracker {
 		this.samples = 0;
 		this.continuous = 0;
 		this.ground = undefined;
+		this.lastTuck = -Infinity;
 	}
 	update(f: PoseFrame): TrackingUpdate {
 		let dt = f.timestamp - this.last;
@@ -206,6 +212,10 @@ export class Tracker implements ExerciseTracker {
 		this.samples = this.candidate === phase ? this.samples + 1 : 1;
 		this.candidate = phase;
 		const sequence: readonly string[] = cycles[this.id];
+		if (this.id === 'burpee' && sequence[this.index] === 'jump') {
+			if (phase === 'tuck') this.lastTuck = f.timestamp;
+			if (f.timestamp - this.lastTuck > 0.75) this.index = 1;
+		}
 		let rep = false,
 			held = 0;
 		if (sequence.length === 1) {
@@ -217,13 +227,20 @@ export class Tracker implements ExerciseTracker {
 			}
 			if (phase !== sequence[0] && this.samples >= 2) this.continuous = 0;
 		} else if (this.samples >= 2 && phase === sequence[this.index]) {
+			if (phase === 'tuck') this.lastTuck = f.timestamp;
 			if (this.id === 'burpee' && this.index === 0)
 				this.ground = Math.max(f.points.left_ankle?.y ?? 0, f.points.right_ankle?.y ?? 0);
 			if (++this.index === sequence.length) {
 				rep = true;
 				this.index = 1;
 			}
-		} else if (this.samples >= 2 && phase === sequence[0] && this.index > 1) this.index = 1;
+		} else if (
+			this.samples >= 2 &&
+			phase === sequence[0] &&
+			this.index > 1 &&
+			sequence[this.index] !== 'jump'
+		)
+			this.index = 1;
 		return {
 			phase,
 			status:

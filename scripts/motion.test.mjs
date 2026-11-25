@@ -25,6 +25,39 @@ for (const id of exercises) {
 		} else assert.equal(reps(id, [...poses, ...poses, ...poses]), 3);
 	});
 }
+test('front-facing forward reach counts, lateral shoulder-height reach does not', () => {
+	const [closed, raised] = demoFrames('front-jack');
+	for (const side of ['left', 'right']) {
+		const p = raised.points;
+		p[`${side}_elbow`].x = p[`${side}_shoulder`].x;
+		p[`${side}_wrist`].x = p[`${side}_shoulder`].x;
+	}
+	assert.equal(reps('front-jack', [closed, raised, closed]), 1);
+	raised.points.left_wrist.x += 38;
+	raised.points.right_wrist.x -= 38;
+	assert.equal(reps('front-jack', [closed, raised, closed]), 0);
+});
+test('sit-up with extended legs requires sitting up and returning to the floor', () => {
+	const poses = demoFrames('sit-up');
+	for (const { points: p } of poses)
+		for (const side of ['left', 'right']) p[`${side}_knee`].y = p[`${side}_hip`].y;
+	assert.equal(reps('sit-up', poses.slice(0, 2)), 0);
+	assert.equal(reps('sit-up', poses), 1);
+});
+test('straightening before burpee takeoff does not cancel the rep or replace the jump', () => {
+	const poses = demoFrames('burpee');
+	poses.splice(5, 0, poses[0]);
+	assert.equal(reps('burpee', poses), 1);
+	assert.equal(
+		reps(
+			'burpee',
+			poses.filter((_, i) => i !== 6)
+		),
+		0
+	);
+	poses.splice(5, 0, ...Array(12).fill(poses[0]));
+	assert.equal(reps('burpee', poses), 0);
+});
 test('wrong exercises, rest and truncated movements never earn a rep', () => {
 	const jack = demoFrames('jumping-jack'),
 		burpee = demoFrames('burpee'),

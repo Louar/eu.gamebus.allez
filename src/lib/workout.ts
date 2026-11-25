@@ -25,7 +25,7 @@ export const example: Workout = {
 		{ exercise: 'plank', hold: 15 },
 		{ rest: 10 },
 		{ exercise: 'jumping-jack', duration: 15 },
-		{ exercise: 'burpee', reps: 5 }
+		{ exercise: 'push-up', reps: 5 }
 	],
 	repeat: { rounds: 3 }
 };
