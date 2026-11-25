@@ -11,6 +11,8 @@
 	"offline_available": "Available offline: {models}",
 	"offline_none": "No pose model is available offline yet.",
 	"offline_update": "An update is ready. Your workout stays on the current build until you finish.",
+	"offline_update_title": "A new version is available",
+	"offline_update_later": "Later",
 	"offline_apply": "Apply update",
 	"offline_update_busy": "Finish workouts in all open app tabs before applying the update.",
 	"camera_enable": "Enable camera to start",

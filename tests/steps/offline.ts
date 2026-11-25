@@ -92,6 +92,7 @@ Given(
 		await realPage.goto(`?model=${model}`);
 		await controlled(realPage);
 		await expect(realPage.getByTestId('offline-status')).toBeVisible();
+		await expect(realPage.getByTestId('pwa-update')).toHaveCount(0);
 		const status = (await message(realPage, 'STATUS', model)).at(-1)!;
 		expect(status.ready).toBe(false);
 		expect(status.available).not.toContain(model);
@@ -614,6 +615,28 @@ Then('the workout finishes with its original repetition count and timer', async 
 When('I finish reviewing and explicitly apply the update', async ({ page }) => {
 	const state = visitor(page);
 	await state.page.getByRole('button', { name: 'Back to setup', exact: true }).click();
+	await expect(state.page.getByTestId('pwa-update')).toBeVisible();
+	await state.context.setOffline(true);
+	await expect(state.page.getByTestId('pwa-update')).toHaveCount(0);
+	expect(
+		await state.page.evaluate(
+			async () => (await navigator.serviceWorker.getRegistration())?.waiting?.state
+		)
+	).toBe('installed');
+	await state.context.setOffline(false);
+	await expect(state.page.getByTestId('pwa-update')).toBeVisible();
+	await state.page
+		.getByTestId('pwa-update')
+		.getByRole('button', { name: 'Later', exact: true })
+		.first()
+		.click();
+	await expect(state.page.getByTestId('pwa-update')).toBeHidden();
+	expect(
+		await state.page.evaluate(
+			async () => (await navigator.serviceWorker.getRegistration())?.waiting?.state
+		)
+	).toBe('installed');
+	await state.page.reload();
 	await expect(state.page.getByTestId('pwa-update')).toBeVisible();
 	await Promise.all([
 		state.page.waitForEvent('framenavigated', (frame) => frame === state.page.mainFrame()),

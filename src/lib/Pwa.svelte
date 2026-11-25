@@ -3,16 +3,17 @@
 	import { dev, version } from '$app/env';
 	import { get } from 'svelte/store';
 	import { workoutBusy, updateLocked, registerPwa } from './offline';
-	import { Button } from '#lib/components/ui/button/index.js';
-	import * as Alert from '#lib/components/ui/alert/index.js';
+	import { UpdateBanner } from '#lib/components/ui/update-banner/index.js';
 	import * as m from '#lib/paraglide/messages.js';
 	let waiting = $state(false);
 	let registration: ServiceWorkerRegistration | undefined;
 	let applying = $state(false);
 	let blocked = $state(false);
 	let reloadNeeded = $state(false);
+	let online = $state(false);
+	let dismissed = $state(false);
 	function apply() {
-		if (get(workoutBusy)) return;
+		if (!navigator.onLine || get(workoutBusy) || applying) return;
 		if (reloadNeeded) {
 			location.reload();
 			return;
@@ -45,6 +46,29 @@
 	onMount(() => {
 		if (dev || !('serviceWorker' in navigator)) return;
 		let disposed = false;
+		let installing: ServiceWorker | null = null;
+		let pending: ServiceWorker | null = null;
+		const inspect = () => {
+			const next = registration?.waiting ?? null;
+			if (next && next !== pending) dismissed = false;
+			pending = next;
+			waiting = !!next && !!navigator.serviceWorker.controller;
+		};
+		const found = () => {
+			installing?.removeEventListener('statechange', inspect);
+			installing = registration?.installing ?? null;
+			installing?.addEventListener('statechange', inspect);
+			inspect();
+		};
+		const check = () => {
+			online = navigator.onLine;
+			if (online && !document.hidden) void registration?.update().catch(() => {});
+		};
+		online = navigator.onLine;
+		window.addEventListener('online', check);
+		window.addEventListener('offline', check);
+		document.addEventListener('visibilitychange', check);
+		const poll = setInterval(check, 60_000);
 		let unlockTimer: ReturnType<typeof setTimeout>;
 		const unlock = () => {
 			clearTimeout(unlockTimer);
@@ -77,13 +101,9 @@
 			.then((reg) => {
 				if (disposed) return;
 				registration = reg;
-				waiting = !!reg.waiting;
-				reg.addEventListener('updatefound', () => {
-					reg.installing?.addEventListener('statechange', () => {
-						waiting = !!reg.waiting;
-					});
-				});
-				void reg.update().catch(() => {});
+				reg.addEventListener('updatefound', found);
+				found();
+				check();
 			})
 			.catch(() => {});
 		if (import.meta.env.VITE_REPLAY === 'true') {
@@ -95,6 +115,12 @@
 		}
 		return () => {
 			disposed = true;
+			clearInterval(poll);
+			window.removeEventListener('online', check);
+			window.removeEventListener('offline', check);
+			document.removeEventListener('visibilitychange', check);
+			registration?.removeEventListener('updatefound', found);
+			installing?.removeEventListener('statechange', inspect);
 			unlock();
 			navigator.serviceWorker.removeEventListener('message', safe);
 			navigator.serviceWorker.removeEventListener('controllerchange', controlled);
@@ -102,19 +128,21 @@
 	});
 </script>
 
-{#if (waiting || reloadNeeded) && !$workoutBusy}
-	<div class="fixed inset-x-0 bottom-0 z-50 p-3">
-		<Alert.Root
-			role="status"
-			data-testid="pwa-update"
-			class="mx-auto flex max-w-2xl flex-wrap items-center justify-center gap-3 has-data-[slot=alert-action]:pr-4"
-		>
-			<Alert.Description>
-				{blocked ? m.offline_update_busy() : m.offline_update()}
-			</Alert.Description>
-			<Alert.Action class="static">
-				<Button variant="outline" disabled={applying} onclick={apply}>{m.offline_apply()}</Button>
-			</Alert.Action>
-		</Alert.Root>
-	</div>
+{#if online && (waiting || reloadNeeded) && !$workoutBusy && !applying && !dismissed}
+	<UpdateBanner
+		source="manual"
+		available={true}
+		position="top-center"
+		title={m.offline_update_title()}
+		description={blocked ? m.offline_update_busy() : m.offline_update()}
+		reloadLabel={m.offline_apply()}
+		dismissLabel={m.offline_update_later()}
+		data-testid="pwa-update"
+		ondismiss={() => (dismissed = true)}
+		onreload={() => {
+			// Keep activation and reload under the cross-tab workout safety protocol.
+			apply();
+			return false;
+		}}
+	/>
 {/if}
