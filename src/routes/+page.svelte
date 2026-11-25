@@ -3,10 +3,9 @@
 	import { getLocale, setLocale } from '#lib/paraglide/runtime.js';
 	import Setup from '#lib/Setup.svelte';
 	import { decodeWorkout, example, type Workout } from '#lib/workout.js';
-	import Shield from '@lucide/svelte/icons/shield-check';
 	import { onMount } from 'svelte';
 	import * as ToggleGroup from '#lib/components/ui/toggle-group/index.js';
-	import { Separator } from '#lib/components/ui/separator/index.js';
+	import * as Card from '#lib/components/ui/card/index.js';
 	let workout = $state<Workout>(example),
 		error = $state(''),
 		ready = $state(false);
@@ -34,24 +33,14 @@
 <svelte:head>
 	<title>{m.page_title()}</title><meta name="theme-color" content="#f8f8f4" />
 </svelte:head>
-<header class="sticky top-0 z-10 mb-6 border-b bg-background">
-	<div
-		class="mx-auto flex min-h-15 max-w-302 items-center justify-between px-[clamp(1rem,3vw,2rem)] min-[621px]:min-h-18"
-	>
-		<div class="flex items-center gap-2.5">
-			<svg width="37" height="37" viewBox="0 0 40 40" aria-hidden="true">
-				<rect width="40" height="40" rx="10" fill="#f3713c" /><path
-					d="M7 29 18 10h7L14 29zm12 0 8-14 6 14h-7l-1-4-2 4z"
-					fill="#172025"
-				/>
-			</svg><strong class="text-[1.85rem] leading-none font-[820] tracking-[-0.08em]">
-				{m.brand()}
-			</strong>
-			<Separator orientation="vertical" class="ml-1 hidden h-5 min-[621px]:block" />
-			<span class="hidden text-sm font-medium text-muted-foreground min-[621px]:inline">
-				{m.studio()}
-			</span>
-		</div>
+<main class="mx-auto max-w-302 px-[clamp(1rem,3vw,2rem)] py-4 sm:py-6">
+	<div class="mb-4 flex items-center justify-between">
+		<Card.Root class="size-8 gap-0 overflow-hidden rounded-md p-0 shadow-none">
+			<svg class="size-full" viewBox="0 0 40 40" role="img" aria-label={m.brand()}>
+				<rect width="40" height="40" fill="#f3713c" />
+				<path d="M7 29 18 10h7L14 29zm12 0 8-14 6 14h-7l-1-4-2 4z" fill="#172025" />
+			</svg>
+		</Card.Root>
 		<ToggleGroup.Root
 			type="single"
 			variant="outline"
@@ -65,17 +54,5 @@
 			<ToggleGroup.Item value="nl" aria-label={m.dutch()}>NL</ToggleGroup.Item>
 		</ToggleGroup.Root>
 	</div>
-</header>
-<main class="mx-auto min-h-[calc(100svh-160px)] max-w-302 px-[clamp(1rem,3vw,2rem)]">
 	{#if ready}<Setup {workout} {error} planner={{ model, sound }} />{/if}
 </main>
-<footer
-	class="mx-auto mt-6 flex min-h-16 max-w-302 items-center justify-between gap-6 border-t px-[clamp(1rem,3vw,2rem)] text-[0.7rem] text-muted-foreground"
->
-	<span class="ml-auto flex items-center gap-2">
-		<Shield size={14} aria-hidden="true" />{m.local_blurb()}
-	</span>
-	<span class="hidden items-center gap-2 text-xs font-semibold min-[401px]:flex">
-		<i class="size-[7px] rounded-full bg-studio-success"></i>{m.private_session()}
-	</span>
-</footer>

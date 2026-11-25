@@ -22,7 +22,7 @@
 	data-testid="stage"
 	data-stage="setup"
 >
-	<StudioHero />
+	{#if !planner}<StudioHero />{/if}
 	{#if error}
 		<Alert.Root variant="destructive">
 			<Alert.Description>{m.setup_bad_link()}</Alert.Description>

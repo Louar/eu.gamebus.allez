@@ -1,19 +1,19 @@
 <script lang="ts">
-	import { afterNavigate, goto } from '$app/navigation';
-	import { page } from '$app/state';
-	import { resolve } from '$app/paths';
+	import * as Alert from '#lib/components/ui/alert/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as Card from '#lib/components/ui/card/index.js';
-	import * as Alert from '#lib/components/ui/alert/index.js';
+	import Live from '#lib/Live.svelte';
+	import { randomWorkout } from '#lib/minimal-workout.js';
+	import { updateLocked } from '#lib/offline.js';
 	import * as m from '#lib/paraglide/messages.js';
 	import { getLocale } from '#lib/paraglide/runtime.js';
-	import { decodeWorkout, encodeWorkout, type Workout } from '#lib/workout.js';
-	import { randomWorkout } from '#lib/minimal-workout.js';
 	import { name, reps } from '#lib/words.js';
-	import Live from '#lib/Live.svelte';
-	import { updateLocked } from '#lib/offline.js';
-	import Camera from '@lucide/svelte/icons/camera';
+	import { decodeWorkout, encodeWorkout, type Workout } from '#lib/workout.js';
+	import { afterNavigate, goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
+	import Camera from '@lucide/svelte/icons/camera';
 
 	let workout = $state.raw<Workout | null>(null);
 	let entered = $state(false),
@@ -123,12 +123,19 @@
 					{/if}
 				</Card.Content>
 				<Card.Footer class="flex-wrap gap-3">
-					{#if workout}<Button size="lg" disabled={$updateLocked} onclick={() => (entered = true)}>
-							<Camera data-icon="inline-start" />{m.camera_enable()}
-						</Button>{/if}
 					<Button variant="outline" href={resolve(`/${plannerQuery}`)}>
 						<ArrowLeft data-icon="inline-start" />{m.back_setup()}
 					</Button>
+					{#if workout}
+						<Button
+							size="lg"
+							class="ml-auto"
+							disabled={$updateLocked}
+							onclick={() => (entered = true)}
+						>
+							<Camera data-icon="inline-start" />{m.camera_enable()}
+						</Button>
+					{/if}
 				</Card.Footer>
 			</Card.Root>
 		</section>

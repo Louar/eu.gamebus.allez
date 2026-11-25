@@ -643,7 +643,7 @@
 											</div>
 											<Badge variant="secondary">
 												{#if 'rest' in step}<Coffee data-icon="inline-start" />{/if}{'reps' in step
-													? step.reps
+													? `${step.reps} ×`
 													: m.setup_s({
 															n:
 																'hold' in step
@@ -892,7 +892,7 @@
 		min-height: 100%;
 		flex-direction: column;
 		align-items: flex-end;
-		gap: 1rem;
+		gap: 0.75rem;
 		padding: max(var(--gutter), env(safe-area-inset-top))
 			max(var(--gutter), env(safe-area-inset-right)) max(var(--gutter), env(safe-area-inset-bottom))
 			max(var(--gutter), env(safe-area-inset-left));
@@ -1081,6 +1081,9 @@
 		outline-offset: 2px;
 	}
 	@media (max-width: 900px) {
+		.hud {
+			gap: 0.5rem;
+		}
 		.exercise-deck {
 			width: 100%;
 			grid-template-columns: minmax(0, 1fr) minmax(min-content, 1fr);
@@ -1137,7 +1140,7 @@
 	@media (max-height: 480px) and (orientation: landscape) {
 		.hud {
 			--gutter: 0.5rem;
-			gap: 0.65rem;
+			gap: 0.5rem;
 		}
 		.pane {
 			padding: 0.6rem 0.8rem;

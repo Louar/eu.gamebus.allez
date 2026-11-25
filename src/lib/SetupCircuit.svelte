@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { tick, untrack } from 'svelte';
-	import { SvelteURL } from 'svelte/reactivity';
+	import { flip } from 'svelte/animate';
+	import { dragHandleZone, dragHandle, type DndEvent } from 'svelte-dnd-action';
 	import { resolve } from '$app/paths';
 	import { goto } from '$app/navigation';
 	import LocalizedSelect from './LocalizedSelect.svelte';
@@ -10,21 +11,18 @@
 	import * as Card from '#lib/components/ui/card/index.js';
 	import * as Field from '#lib/components/ui/field/index.js';
 	import * as Alert from '#lib/components/ui/alert/index.js';
-	import { Input } from '#lib/components/ui/input/index.js';
-	import { Switch } from '#lib/components/ui/switch/index.js';
+	import * as InputGroup from '#lib/components/ui/input-group/index.js';
 	import { Badge } from '#lib/components/ui/badge/index.js';
 	import { cn } from '#lib/utils.js';
 	import {
 		ArrowUpRight,
 		Check,
-		Clipboard,
 		Coffee,
+		GripVertical,
 		Pencil,
 		Plus,
 		ShieldCheck,
-		SlidersHorizontal,
-		Trash2,
-		Volume2
+		Trash2
 	} from '@lucide/svelte';
 	import * as m from '#lib/paraglide/messages.js';
 	import { encodeWorkout, parseWorkout, type Workout } from './workout';
@@ -41,14 +39,14 @@
 		onpractice?: (w: Workout, model: 'mediapipe' | 'movenet', sound: boolean) => void;
 	} = $props();
 	type Kind = 'reps' | 'duration' | 'hold' | 'rest';
-	type Row = { key: number; exercise: ExerciseId; kind: Kind; value: number | undefined };
+	type Row = { id: number; exercise: ExerciseId; kind: Kind; value: number | undefined };
 	const seed = untrack(() => workout);
 	let serial = 0;
 	let rows = $state<Row[]>(
 		seed.steps.map((s) => {
 			const kind = 'rest' in s ? 'rest' : 'reps' in s ? 'reps' : 'hold' in s ? 'hold' : 'duration';
 			return {
-				key: ++serial,
+				id: ++serial,
 				exercise: 'exercise' in s ? s.exercise : 'squat',
 				kind,
 				value: 'rest' in s ? s.rest : 'reps' in s ? s.reps : 'hold' in s ? s.hold : s.duration
@@ -66,12 +64,10 @@
 	);
 	let rest = $state<number | undefined>(seed.rest ?? 0);
 	let model = $state<'mediapipe' | 'movenet'>(untrack(() => planner?.model ?? 'mediapipe')),
-		sound = $state(untrack(() => planner?.sound ?? false)),
 		edit = $state(false);
+	const sound = untrack(() => planner?.sound ?? false);
 	let invalid = $state(false),
-		tooLong = $state(false),
-		copied = $state(false),
-		manual = $state('');
+		tooLong = $state(false);
 	let form: HTMLFormElement;
 	const id = $props.id();
 	const isStatic = (id: ExerciseId) => id === 'plank' || id === 'squat-hold';
@@ -127,34 +123,12 @@
 		const encoded = encodedWorkout(w);
 		if (encoded) void goto(resolve(plannerPath(encoded)));
 	}
-	async function copy() {
-		const w = validated();
-		if (!w) return;
-		const encoded = encodedWorkout(w);
-		if (!encoded) return;
-		const url = new SvelteURL(
-			planner ? resolve(plannerPath(encoded)) : location.href,
-			location.href
-		);
-		if (!planner) url.searchParams.set('workout', encoded);
-		url.hash = '';
-		try {
-			await navigator.clipboard.writeText(url.href);
-			copied = true;
-			manual = '';
-		} catch {
-			manual = url.href;
-			copied = false;
-			await tick();
-			form.querySelector<HTMLInputElement>('[data-share]')?.select();
-		}
-	}
 	async function add(kind: 'reps' | 'rest') {
-		const row = { key: ++serial, exercise: 'squat' as const, kind, value: 10 };
+		const row = { id: ++serial, exercise: 'squat' as const, kind, value: 10 };
 		rows.push(row);
 		clear();
 		await tick();
-		focusRow(row.key);
+		focusRow(row.id);
 	}
 	function focusRow(key: number) {
 		form.querySelector<HTMLElement>(`[data-row="${key}"] :is([role="combobox"],input)`)?.focus();
@@ -163,14 +137,16 @@
 		rows.splice(i, 1);
 		clear();
 		await tick();
-		if (rows.length) focusRow(rows[Math.min(i, rows.length - 1)].key);
+		if (rows.length) focusRow(rows[Math.min(i, rows.length - 1)].id);
 		else form.querySelector<HTMLButtonElement>('[data-add]')?.focus();
 	}
 	function clear() {
 		invalid = false;
 		tooLong = false;
-		copied = false;
-		manual = '';
+	}
+	function reorder(event: CustomEvent<DndEvent<Row>>) {
+		rows = event.detail.items;
+		clear();
 	}
 	function changeExercise(row: Row, id: ExerciseId) {
 		row.exercise = id;
@@ -185,7 +161,7 @@
 	{@attach (element: HTMLFormElement) => {
 		form = element;
 	}}
-	class="dashboard grid items-start gap-5 min-[741px]:grid-cols-[minmax(0,1.7fr)_minmax(270px,1fr)]"
+	class="dashboard grid items-start gap-5 max-[740px]:pb-[calc(5rem+env(safe-area-inset-bottom))] min-[741px]:grid-cols-[minmax(0,1.7fr)_minmax(270px,1fr)]"
 	oninput={(e) => {
 		if (e.target instanceof HTMLInputElement) e.target.setCustomValidity('');
 		clear();
@@ -195,8 +171,7 @@
 	<Card.Root class="min-w-0" role="region" aria-labelledby={`${id}-circuit-title`}>
 		<Card.Header>
 			<div>
-				<Card.Description>{m.setup_program()}</Card.Description>
-				<Card.Title><h2 id={`${id}-circuit-title`}>{m.setup_circuit()}</h2></Card.Title>
+				<Card.Title><h2 id={`${id}-circuit-title`}>{m.setup_program()}</h2></Card.Title>
 			</div>
 			<Card.Action>
 				<Button
@@ -230,30 +205,45 @@
 						/>
 					</Field.Field>
 					{#if mode === 'rounds'}<Field.Field>
-							<Field.Label for={`${id}-rounds`}>{m.setup_rounds()}</Field.Label><Input
-								id={`${id}-rounds`}
-								type="number"
-								min="1"
-								required
-								bind:value={rounds}
-							/>
+							<Field.Label for={`${id}-rounds`}>{m.setup_rounds()}</Field.Label><InputGroup.Root>
+								<InputGroup.Input
+									id={`${id}-rounds`}
+									type="number"
+									min="1"
+									required
+									bind:value={rounds}
+								/>
+								<InputGroup.Addon align="inline-end">
+									<InputGroup.Text>×</InputGroup.Text>
+								</InputGroup.Addon>
+							</InputGroup.Root>
 						</Field.Field>{:else}<Field.Field>
-							<Field.Label for={`${id}-budget`}>{m.setup_budget()}</Field.Label><Input
-								id={`${id}-budget`}
-								type="number"
-								min="1"
-								required
-								bind:value={budget}
-							/>
+							<Field.Label for={`${id}-budget`}>{m.setup_budget()}</Field.Label><InputGroup.Root>
+								<InputGroup.Input
+									id={`${id}-budget`}
+									type="number"
+									min="1"
+									required
+									bind:value={budget}
+								/>
+								<InputGroup.Addon align="inline-end">
+									<InputGroup.Text>s</InputGroup.Text>
+								</InputGroup.Addon>
+							</InputGroup.Root>
 						</Field.Field>{/if}
 					<Field.Field class="max-[520px]:col-span-2">
-						<Field.Label for={`${id}-rest`}>{m.setup_auto()}</Field.Label><Input
-							id={`${id}-rest`}
-							type="number"
-							min="0"
-							required
-							bind:value={rest}
-						/>
+						<Field.Label for={`${id}-rest`}>{m.setup_auto()}</Field.Label><InputGroup.Root>
+							<InputGroup.Input
+								id={`${id}-rest`}
+								type="number"
+								min="0"
+								required
+								bind:value={rest}
+							/>
+							<InputGroup.Addon align="inline-end">
+								<InputGroup.Text>s</InputGroup.Text>
+							</InputGroup.Addon>
+						</InputGroup.Root>
 					</Field.Field>
 				</Field.Group>
 			{:else}
@@ -277,7 +267,7 @@
 						>
 							{mode === 'duration'
 								? m.setup_s({ n: budget ?? 0 })
-								: String(rounds).padStart(2, '0')}
+								: `${String(rounds).padStart(2, '0')} ×`}
 						</dd>
 					</div>
 					<div class="flex flex-col-reverse items-start gap-1 px-[clamp(8px,1.5vw,20px)]">
@@ -290,15 +280,39 @@
 					</div>
 				</dl>
 			{/if}
-			<ol class="m-0 list-none divide-y divide-border p-0" aria-labelledby={`${id}-circuit-title`}>
-				{#each rows as row, i (row.key)}
+			<ol
+				class="m-0 list-none divide-y divide-border p-0"
+				aria-label={m.setup_circuit()}
+				use:dragHandleZone={{
+					items: rows,
+					dragDisabled: !edit,
+					zoneTabIndex: edit ? 0 : -1,
+					flipDurationMs: 150,
+					dropFromOthersDisabled: true,
+					dropTargetStyle: {}
+				}}
+				onconsider={reorder}
+				onfinalize={reorder}
+			>
+				{#each rows as row, i (row.id)}
 					<li
+						animate:flip={{ duration: 150 }}
 						class={cn(
 							'flex min-h-[66px] items-center gap-2.5 px-1 py-2.5 min-[521px]:gap-3.5',
 							edit && 'max-[520px]:items-start'
 						)}
-						data-row={row.key}
+						data-row={row.id}
+						aria-label={row.kind === 'rest' ? m.setup_rest() : name(row.exercise)}
 					>
+						{#if edit}<div
+								role="button"
+								tabindex="0"
+								use:dragHandle
+								class="grid size-8 shrink-0 place-items-center rounded-md hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring [&_svg]:size-4"
+								aria-label={m.setup_reorder_label({ n: i + 1 })}
+							>
+								<GripVertical />
+							</div>{/if}
 						<span
 							class={cn(
 								'grid size-[30px] shrink-0 place-items-center rounded-lg border font-mono text-xs font-semibold min-[521px]:size-[34px]',
@@ -340,13 +354,18 @@
 									</Field.Field>
 								{/if}
 								<Field.Field>
-									<Input
-										aria-label={m.setup_target_label({ n: i + 1 })}
-										type="number"
-										min="1"
-										required
-										bind:value={row.value}
-									/>
+									<InputGroup.Root>
+										<InputGroup.Input
+											aria-label={m.setup_target_label({ n: i + 1 })}
+											type="number"
+											min="1"
+											required
+											bind:value={row.value}
+										/>
+										<InputGroup.Addon align="inline-end">
+											<InputGroup.Text>{row.kind === 'reps' ? '×' : 's'}</InputGroup.Text>
+										</InputGroup.Addon>
+									</InputGroup.Root>
 								</Field.Field>
 							</Field.Group>
 							<Button
@@ -373,7 +392,7 @@
 							<Badge variant="secondary" class="ml-auto shrink-0">
 								{#if row.kind === 'rest'}<Coffee data-icon="inline-start" />{/if}{row.kind ===
 								'reps'
-									? row.value
+									? `${row.value} ×`
 									: m.setup_s({ n: row.value ?? 0 })}
 							</Badge>
 						{/if}
@@ -393,16 +412,21 @@
 						<Alert.Description>{m.setup_invalid()}</Alert.Description>
 					</Alert.Root>{/if}
 			</Card.Footer>{/if}
+		<Card.Footer
+			class="flex-col items-stretch gap-2 max-[740px]:fixed max-[740px]:inset-x-0 max-[740px]:bottom-0 max-[740px]:z-10 max-[740px]:rounded-none max-[740px]:border-t max-[740px]:bg-background max-[740px]:px-4 max-[740px]:pt-3 max-[740px]:pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
+			data-testid="planner-start"
+		>
+			<Button size="lg" class="w-full justify-between" disabled={$updateLocked} onclick={practice}>
+				{planner ? m.start_workout() : m.setup_practice()}<ArrowUpRight data-icon="inline-end" />
+			</Button>
+			<div role="status" class="text-sm leading-relaxed empty:hidden">
+				{#if tooLong}{m.setup_too_long()}{/if}
+			</div>
+		</Card.Footer>
 	</Card.Root>
 	<aside class="min-w-0" aria-labelledby={`${id}-settings-title`}>
 		<Card.Root>
-			<Card.Header>
-				<div>
-					<Card.Description>{m.setup_equipment()}</Card.Description>
-					<Card.Title><h2 id={`${id}-settings-title`}>{m.setup_settings()}</h2></Card.Title>
-				</div>
-				<Card.Action><SlidersHorizontal aria-hidden="true" /></Card.Action>
-			</Card.Header>
+			<h2 id={`${id}-settings-title`} class="sr-only">{m.setup_settings()}</h2>
 			<Card.Content class="flex flex-col gap-5">
 				<Field.Group class="gap-4">
 					<Field.Field>
@@ -416,13 +440,6 @@
 							] as const}
 						/>
 					</Field.Field>
-					<Field.Field orientation="horizontal">
-						<Field.Label for={`${id}-sound`}><Volume2 />{m.setup_sound()}</Field.Label><Switch
-							id={`${id}-sound`}
-							class="ml-auto"
-							bind:checked={sound}
-						/>
-					</Field.Field>
 				</Field.Group>
 				<Offline {model} />
 				<Alert.Root
@@ -434,33 +451,6 @@
 					<Alert.Description>{m.setup_privacy()}</Alert.Description>
 				</Alert.Root>
 			</Card.Content>
-			<Card.Footer class="flex-col items-stretch gap-2">
-				<Button
-					size="lg"
-					class="w-full justify-between"
-					disabled={$updateLocked}
-					onclick={practice}
-				>
-					{planner ? m.start_workout() : m.setup_practice()}<ArrowUpRight data-icon="inline-end" />
-				</Button><Button variant="outline" class="w-full" onclick={copy}>
-					<Clipboard data-icon="inline-start" />{m.setup_copy()}
-				</Button>
-				<div role="status" class="text-sm leading-relaxed empty:hidden">
-					{#if tooLong}{m.setup_too_long()}{/if}
-					{#if copied}{m.setup_copied()}{:else if manual}{m.setup_manual()}{/if}
-				</div>
-				{#if manual}<Field.Field>
-						<Input
-							data-share
-							aria-label={m.setup_link()}
-							readonly
-							value={manual}
-							onfocus={(event: FocusEvent) => {
-								if (event.currentTarget instanceof HTMLInputElement) event.currentTarget.select();
-							}}
-						/>
-					</Field.Field>{/if}
-			</Card.Footer>
 		</Card.Root>
 	</aside>
 </form>
