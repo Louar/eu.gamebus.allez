@@ -62,7 +62,10 @@ export default defineConfig({
 					output: {
 						codeSplitting: {
 							groups: [
-								{ name: 'pose-movenet', test: /node_modules\/@tensorflow\// },
+								{
+									name: 'pose-movenet',
+									test: /node_modules\/@tensorflow\/|\/movenet-runtime\.ts$/
+								},
 								{ name: 'pose-mediapipe', test: /node_modules\/@mediapipe\// }
 							]
 						}

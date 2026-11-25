@@ -51,7 +51,11 @@ try {
 	const origin = `http://127.0.0.1:${server.httpServer.address().port}`;
 	browser = await chromium.launch({ args: ['--enable-unsafe-swiftshader'] });
 	console.log('Chromium', browser.version(), process.platform, process.arch);
-	for (const id of ['mediapipe', 'movenet']) {
+	for (const [id, backend] of [
+		['mediapipe', 'wasm'],
+		['movenet', 'webgl'],
+		['movenet', 'cpu']
+	]) {
 		const page = await browser.newPage();
 		const requests = [],
 			violations = [];
@@ -64,13 +68,15 @@ try {
 			requests.push(req.url().slice(origin.length + base.length));
 			return route.continue();
 		});
-		await page.goto(origin + base);
+		// TFJS reads feature overrides before initializing its priority-ordered backends.
+		await page.goto(origin + base + (backend === 'cpu' ? '?tfjsflags=HAS_WEBGL:false' : ''));
 		await page.waitForFunction(() => typeof window.check === 'function');
 		const result = await page.evaluate(
 			([id, exercise]) => window.check(id, exercise),
 			[id, process.argv[3] ?? 'push-up']
 		);
 		assert.deepEqual(violations, []);
+		assert.equal(result.backend, backend);
 		const assets = requests.filter((p) => p.startsWith('models/'));
 		assert(assets.every((p) => p.startsWith(`models/${id}/`)));
 		assert(assets.some((p) => p.endsWith(id === 'mediapipe' ? '.wasm' : '.bin')));

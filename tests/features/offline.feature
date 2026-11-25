@@ -56,6 +56,15 @@ Feature: Prepared workouts work without a network connection
     Then the evicted provider loses its offline readiness
     When I retry preparation with the network restored
     Then offline preparation reports complete assets and progress
+    And only the evicted shard was downloaded on retry
+
+  Scenario: A changed catalog digest cannot reuse the old shard at the same URL
+    Given a fresh PWA visitor using "movenet"
+    When I prepare the selected provider for offline use
+    And the catalog changes the expected hash of one shard
+    Then the unchanged server response fails integrity verification
+    When the server supplies the changed shard
+    Then only that verified shard is replaced and served offline
 
   Scenario: Insufficient storage offers Retry without claiming readiness
     Given a fresh PWA visitor using "movenet"
@@ -89,6 +98,7 @@ Feature: Prepared workouts work without a network connection
     Given a fresh update PWA visitor using "movenet"
     When I prepare the selected provider for offline use
     Then offline preparation reports complete assets and progress
+    When an old document stays open with a legacy cached model asset
     When a new service worker is installed during an active workout
     Then the update waits without reloading or replacing the active worker
     And the workout finishes with its original repetition count and timer
@@ -96,3 +106,7 @@ Feature: Prepared workouts work without a network connection
     Then the new build controls the page without claiming old models are ready
     When I prepare the selected provider for offline use
     Then offline preparation reports complete assets and progress
+    And the UI-only update downloaded no model data
+    And the old document can still read its original model asset offline
+    When I disconnect and open a previously unseen workout link
+    Then the real "movenet" detector infers locally while offline

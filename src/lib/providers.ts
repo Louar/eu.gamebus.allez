@@ -53,7 +53,7 @@ export async function loadDetector(
 		};
 	}
 	if (id !== 'movenet') throw new Error('Unknown landmark model');
-	const tf = await import('@tensorflow/tfjs');
+	const tf = await import('./movenet-runtime');
 	await tf.ready();
 	const size = 256;
 	const canvas = document.createElement('canvas');
@@ -73,8 +73,8 @@ export async function loadDetector(
 			const output = tf.tidy(
 				() =>
 					model.execute(
-						tf.browser.fromPixels(canvas).expandDims(0)
-					) as import('@tensorflow/tfjs').Tensor
+						tf.expandDims(tf.browser.fromPixels(canvas), 0)
+					) as import('./movenet-runtime').Tensor
 			);
 			try {
 				const values = await output.data();

@@ -1,10 +1,12 @@
 import { expect, type BrowserContext, type CDPSession, type Page } from '@playwright/test';
+import { createHash } from 'node:crypto';
 import { createBdd } from 'playwright-bdd';
 import { demoFrames, type LandmarkDetector, type PoseFrame } from '../../src/lib/motion';
 import { encodeWorkout } from '../../src/lib/workout';
 
 const { Given, When, Then, AfterScenario } = createBdd();
 type Model = 'mediapipe' | 'movenet';
+type Asset = { path: string; sha256: string; size: number };
 type Reply = {
 	ready: boolean;
 	available: string[];
@@ -22,6 +24,11 @@ type State = {
 	replies: Reply[];
 	errors: string[];
 	requests: string[];
+	modelDownloads: string[];
+	shardURL?: string;
+	changedBytes?: Buffer;
+	oldDocument?: Page;
+	legacyURL?: string;
 	versionBeforeUpdate?: string;
 	counterBeforeUpdate?: string;
 	workoutURL?: string;
@@ -80,11 +87,17 @@ Given(
 			model,
 			replies: [],
 			errors: [],
-			requests: []
+			requests: [],
+			modelDownloads: []
 		};
 		visitors.set(page, state);
 		realPage.on('pageerror', (error) => state.errors.push(error.message));
-		context.on('request', (request) => state.requests.push(request.url()));
+		context.on('request', (request) => {
+			state.requests.push(request.url());
+			if (request.serviceWorker() && /\/models\/(mediapipe|movenet)\//.test(request.url())) {
+				state.modelDownloads.push(request.url());
+			}
+		});
 		// Routing disables the HTTP cache, so offline success must come from the service worker.
 		await context.route('**/*', (route) =>
 			route.request().url().startsWith(baseURL!) ? route.continue() : route.abort('blockedbyclient')
@@ -418,20 +431,82 @@ Then('the incomplete provider is not ready offline', async ({ page }) => {
 
 When('a cached model shard is evicted and I disconnect', async ({ page }) => {
 	const state = visitor(page);
-	const deleted = await state.page.evaluate(async () => {
-		let deleted = 0;
-		for (const name of await caches.keys()) {
-			const cache = await caches.open(name);
-			const shard = (await cache.keys()).find((request) =>
-				/\/models\/movenet\/.*\.bin$/.test(request.url)
-			);
-			if (shard && (await cache.delete(shard))) deleted++;
-		}
-		return deleted;
-	});
-	expect(deleted).toBeGreaterThan(0);
+	state.shardURL = await state.page.evaluate(async (base) => {
+		const data = (await (await fetch(`${base}models/catalog.json`)).json()) as Record<
+			Model,
+			Asset[]
+		>;
+		const shard = data.movenet.find((asset) => asset.path.endsWith('.bin'))!;
+		const cache = await caches.open(`alez-models:${encodeURIComponent(new URL(base).pathname)}:v1`);
+		if (!(await cache.delete(`${base}.offline/sha256/${shard.sha256}/${shard.size}`)))
+			throw new Error('No prepared shard');
+		return new URL(shard.path, base).href;
+	}, state.baseURL);
+	state.modelDownloads.length = 0;
 	await state.context.setOffline(true);
 	await state.page.reload();
+});
+
+Then('only the evicted shard was downloaded on retry', ({ page }) => {
+	const state = visitor(page);
+	expect(state.modelDownloads).toEqual([state.shardURL]);
+});
+
+When('the catalog changes the expected hash of one shard', async ({ page }) => {
+	const state = visitor(page);
+	const catalogURL = `${state.baseURL}models/catalog.json`;
+	const data = (await (await state.context.request.get(catalogURL)).json()) as Record<
+		Model,
+		Asset[]
+	>;
+	const shard = data.movenet.find((asset) => asset.path.endsWith('.bin'))!;
+	state.shardURL = new URL(shard.path, state.baseURL).href;
+	state.changedBytes = await (await state.context.request.get(state.shardURL)).body();
+	state.changedBytes[0] ^= 1; // Same length, different SHA-256.
+	shard.sha256 = createHash('sha256').update(state.changedBytes).digest('hex');
+	const { version } = (await message(state.page, 'STATUS', state.model)).at(-1)!;
+	const name = `alez:${encodeURIComponent(new URL(state.baseURL).pathname)}:${version}`;
+	await state.page.evaluate(
+		async ({ name, catalogURL, data }) => {
+			await (await caches.open(name)).put(catalogURL, Response.json(data));
+		},
+		{ name, catalogURL, data }
+	);
+	state.modelDownloads.length = 0;
+});
+
+Then('the unchanged server response fails integrity verification', async ({ page }) => {
+	const state = visitor(page);
+	expect((await message(state.page, 'STATUS', state.model)).at(-1)!.ready).toBe(false);
+	expect((await message(state.page, 'PREPARE', state.model)).at(-1)).toMatchObject({
+		ready: false,
+		error: 'download',
+		available: []
+	});
+	expect(state.modelDownloads).toEqual([state.shardURL]);
+});
+
+When('the server supplies the changed shard', async ({ page }) => {
+	const state = visitor(page);
+	state.modelDownloads.length = 0;
+	await state.context.route(state.shardURL!, (route) =>
+		route.fulfill({ body: state.changedBytes!, contentType: 'application/octet-stream' })
+	);
+	expect((await message(state.page, 'PREPARE', state.model)).at(-1)!.ready).toBe(true);
+	await state.context.unroute(state.shardURL!);
+});
+
+Then('only that verified shard is replaced and served offline', async ({ page }) => {
+	const state = visitor(page);
+	expect(state.modelDownloads).toEqual([state.shardURL]);
+	await state.context.setOffline(true);
+	const digest = await state.page.evaluate(async (url) => {
+		const bytes = await (await fetch(url)).arrayBuffer();
+		return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)), (n) =>
+			n.toString(16).padStart(2, '0')
+		).join('');
+	}, state.shardURL!);
+	expect(digest).toBe(createHash('sha256').update(state.changedBytes!).digest('hex'));
 });
 
 Then('the evicted provider loses its offline readiness', async ({ page }) => {
@@ -512,6 +587,67 @@ Then('the cached alternative is explained in {string}', async ({ page }, languag
 	expect(reply.available).toEqual(['movenet']);
 });
 
+When('an old document stays open with a legacy cached model asset', async ({ page }) => {
+	const state = visitor(page);
+	const { version } = (await message(state.page, 'STATUS', state.model)).at(-1)!;
+	const name = `alez:${encodeURIComponent(new URL(state.baseURL).pathname)}:${version}`;
+	// A controlled document which consents to activation without navigating to the new shell.
+	state.oldDocument = await state.context.newPage();
+	await state.oldDocument.goto(`${state.baseURL}models/catalog.json`);
+	await controlled(state.oldDocument);
+	state.legacyURL = await state.oldDocument.evaluate(
+		async ({ base, name, version, digest }) => {
+			navigator.serviceWorker.addEventListener(
+				'message',
+				(event: MessageEvent<{ type: string }>) => {
+					if (event.data.type === 'CLIENT_BUILD') event.ports[0].postMessage(version);
+					if (event.data.type === 'SAFE_TO_UPDATE') event.ports[0].postMessage(true);
+				}
+			);
+			const release = await caches.open(name);
+			const catalogURL = `${base}models/catalog.json`;
+			const data = (await (await release.match(catalogURL))!.json()) as Record<Model, Asset[]>;
+			const asset = data.mediapipe.find((asset) => asset.path.endsWith('.js'))!;
+			asset.sha256 = digest;
+			asset.size = 'legacy fixture'.length;
+			const url = new URL(asset.path, base).href;
+			await release.put(catalogURL, Response.json(data));
+			await release.put(url, new Response('legacy fixture'));
+			return url;
+		},
+		{
+			base: state.baseURL,
+			name,
+			version,
+			digest: createHash('sha256').update('legacy fixture').digest('hex')
+		}
+	);
+});
+
+Then('the old document can still read its original model asset offline', async ({ page }) => {
+	const state = visitor(page);
+	await state.context.setOffline(true);
+	try {
+		expect(
+			await state.oldDocument!.evaluate(async (url) => (await fetch(url)).text(), state.legacyURL!)
+		).toBe('legacy fixture');
+		// The new document's catalog expects different bytes at exactly this URL.
+		expect(
+			await state.page.evaluate(
+				async (url) =>
+					fetch(url).then(
+						() => true,
+						() => false
+					),
+				state.legacyURL!
+			)
+		).toBe(false);
+	} finally {
+		await state.oldDocument!.close();
+		await state.context.setOffline(false);
+	}
+});
+
 When('a new service worker is installed during an active workout', async ({ page }) => {
 	const state = visitor(page);
 	const encoded = encodeWorkout({ v: 1, steps: [{ exercise: 'squat', duration: 10 }] });
@@ -545,6 +681,8 @@ When('a new service worker is installed during an active workout', async ({ page
 	);
 	state.counterBeforeUpdate = (await state.page.getByTestId('counter').textContent())!.trim();
 	state.versionBeforeUpdate = (await message(state.page, 'STATUS', state.model)).at(-1)!.version;
+	expect(state.modelDownloads.some((url) => url.endsWith('.bin'))).toBe(true);
+	state.modelDownloads.length = 0;
 	const deployment = await state.context.request.post(
 		new URL('__test/deploy-next', state.baseURL).href
 	);
@@ -669,4 +807,8 @@ Then('the new build controls the page without claiming old models are ready', as
 	await expect(
 		state.page.getByRole('button', { name: 'Start workout', exact: true })
 	).toBeVisible();
+});
+
+Then('the UI-only update downloaded no model data', ({ page }) => {
+	expect(visitor(page).modelDownloads).toEqual([]);
 });

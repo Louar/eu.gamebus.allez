@@ -1,5 +1,5 @@
 import type { LandmarkDetector, PoseFrame } from './motion';
-import { loadDetector } from './providers';
+import { loadDetector } from './providers.ts';
 
 /** One inference at a time; the epoch belongs to the captured image, not the result. */
 export function camera(
@@ -13,34 +13,56 @@ export function camera(
 	deviceId = ''
 ) {
 	let closed = false,
-		raf = 0,
 		lastTime = -1,
 		busy = false;
+	const videoCallbacks =
+		typeof video.requestVideoFrameCallback === 'function' &&
+		typeof video.cancelVideoFrameCallback === 'function';
+	let pending: number | undefined;
 	let stream: MediaStream | undefined, detector: LandmarkDetector | undefined;
 	function close() {
 		closed = true;
-		cancelAnimationFrame(raf);
+		if (pending !== undefined) {
+			if (videoCallbacks) video.cancelVideoFrameCallback(pending);
+			else cancelAnimationFrame(pending);
+			pending = undefined;
+		}
 		stream?.getTracks().forEach((t) => t.stop());
 		if (video.srcObject === stream) video.srcObject = null;
+		stream = undefined;
 		if (!busy && detector) {
 			void detector.dispose();
 			detector = undefined;
 		}
 	}
-	async function loop() {
+	function schedule() {
+		pending = videoCallbacks
+			? video.requestVideoFrameCallback(
+					(now, meta) => void loop(meta.captureTime ?? meta.presentationTime ?? now)
+				)
+			: requestAnimationFrame(() => void loop(performance.now()));
+	}
+	async function loop(captureMs: number) {
+		pending = undefined;
 		if (closed) return;
-		if (active() && video.readyState >= 2 && lastTime !== video.currentTime && detector) {
+		const fresh = () => performance.now() - captureMs < 650;
+		if (
+			active() &&
+			video.readyState >= 2 &&
+			(videoCallbacks || lastTime !== video.currentTime) &&
+			detector &&
+			fresh()
+		) {
 			lastTime = video.currentTime;
-			const captured = performance.now() / 1000,
-				token = epoch();
+			const token = epoch();
+			const relevant = () => !closed && active() && token === epoch() && fresh();
 			let bitmap: ImageBitmap | undefined;
 			busy = true;
 			try {
 				bitmap = await createImageBitmap(video);
-				if (!closed) {
-					const frame = await detector.estimate(bitmap, captured);
-					if (!closed && active() && performance.now() / 1000 - captured < 0.65)
-						receive(frame, token);
+				if (relevant()) {
+					const frame = await detector.estimate(bitmap, captureMs / 1000);
+					if (relevant()) receive(frame, token);
 				}
 			} catch {
 				if (!closed) {
@@ -53,7 +75,7 @@ export function camera(
 				if (closed) close();
 			}
 		}
-		if (!closed) raf = requestAnimationFrame(() => void loop());
+		if (!closed) schedule();
 	}
 	async function start() {
 		try {
@@ -65,6 +87,10 @@ export function camera(
 				},
 				audio: false
 			});
+			if (closed) {
+				close();
+				return false;
+			}
 			const track = stream.getVideoTracks()[0];
 			const capabilities = track?.getCapabilities?.() as
 				(MediaTrackCapabilities & { zoom?: { min: number } }) | undefined;
@@ -83,6 +109,7 @@ export function camera(
 			}
 			video.srcObject = stream;
 			await video.play();
+			if (closed) return false;
 		} catch {
 			if (!closed) onerror('camera');
 			close();
@@ -94,7 +121,7 @@ export function camera(
 				close();
 				return false;
 			}
-			raf = requestAnimationFrame(() => void loop());
+			schedule();
 			return true;
 		} catch {
 			if (!closed) onerror('model');
@@ -102,5 +129,6 @@ export function camera(
 			return false;
 		}
 	}
-	return { start, close };
+	let started: Promise<boolean> | undefined;
+	return { start: () => (closed ? Promise.resolve(false) : (started ??= start())), close };
 }

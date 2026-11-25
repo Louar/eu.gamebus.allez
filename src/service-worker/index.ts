@@ -9,6 +9,9 @@ const root = new URL(self.registration.scope);
 const path = (name: string) => new URL(name.replace(/^\//, ''), root).pathname;
 const prefix = `alez:${encodeURIComponent(root.pathname)}:`;
 const cacheName = `${prefix}${version}`;
+const contentName = `alez-models:${encodeURIComponent(root.pathname)}:v1`;
+const contentKey = (asset: Asset) => path(`.offline/sha256/${asset.sha256}/${asset.size}`);
+const clientKey = (id: string) => path(`.offline/client/${id}`);
 const built = immutable.map((asset) => path(asset.path));
 const provider = (url: string) =>
 	(['mediapipe', 'movenet'] as const).find((id) =>
@@ -24,20 +27,24 @@ const shell = [
 	])
 ];
 
+async function verified(asset: Asset, response: Response) {
+	if (!response.ok || response.type === 'opaque') throw new Error('download');
+	const bytes = await response.clone().arrayBuffer();
+	const digest = [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))]
+		.map((n) => n.toString(16).padStart(2, '0'))
+		.join('');
+	if (bytes.byteLength !== asset.size || digest !== asset.sha256) throw new Error('integrity');
+	return response;
+}
+
 async function download(cache: Cache, url: string, asset?: Asset) {
 	const response = await fetch(url === root.pathname ? path('404.html') : url, {
 		cache: 'no-store',
 		signal: AbortSignal.timeout(120_000)
 	});
 	if (!response.ok || response.type === 'opaque') throw new Error('download');
-	if (asset) {
-		const bytes = await response.clone().arrayBuffer();
-		const digest = [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))]
-			.map((n) => n.toString(16).padStart(2, '0'))
-			.join('');
-		if (bytes.byteLength !== asset.size || digest !== asset.sha256) throw new Error('integrity');
-	}
-	await cache.put(url, response);
+	if (asset) await cache.put(contentKey(asset), await verified(asset, response));
+	else await cache.put(url, response);
 }
 
 async function catalog(cache: Cache): Promise<Record<Model, Asset[]>> {
@@ -48,18 +55,18 @@ async function catalog(cache: Cache): Promise<Record<Model, Asset[]>> {
 const runtime = (model: Model) => built.filter((url) => provider(url) === model);
 async function status(model: Model) {
 	const cache = await caches.open(cacheName);
+	const content = await caches.open(contentName);
 	const data = await catalog(cache).catch(() => null);
 	const shellReady = (await Promise.all(shell.map((url) => cache.match(url)))).every(Boolean);
 	const available: Model[] = [];
 	if (data && shellReady)
 		for (const id of ['mediapipe', 'movenet'] as const) {
 			const chunks = runtime(id);
-			const required = [...chunks, ...data[id].map((asset) => path(asset.path))];
-			if (
-				chunks.length &&
-				(await Promise.all(required.map((url) => cache.match(url)))).every(Boolean)
-			)
-				available.push(id);
+			const required = [
+				...chunks.map((url) => cache.match(url)),
+				...data[id].map((asset) => content.match(contentKey(asset)))
+			];
+			if (chunks.length && (await Promise.all(required)).every(Boolean)) available.push(id);
 		}
 	return { ready: available.includes(model), available, version, complete: true };
 }
@@ -73,6 +80,22 @@ self.addEventListener('install', (event) => {
 		})()
 	);
 });
+function clientBuild(client: Client) {
+	return new Promise<string | null>((resolve) => {
+		const channel = new MessageChannel();
+		const finish = (value: string | null) => {
+			channel.port1.close();
+			resolve(value);
+		};
+		const timer = setTimeout(() => finish(null), 3000);
+		channel.port1.onmessage = ({ data }) => {
+			clearTimeout(timer);
+			finish(typeof data === 'string' ? data : null);
+		};
+		client.postMessage({ type: 'CLIENT_BUILD' }, [channel.port2]);
+	});
+}
+
 self.addEventListener('activate', (event) => {
 	event.waitUntil(
 		(async () => {
@@ -81,29 +104,49 @@ self.addEventListener('activate', (event) => {
 			const clients = (
 				await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
 			).filter((client) => client.url.startsWith(root.href));
-			const versions = await Promise.all(
-				clients.map(
-					(client) =>
-						new Promise<string | null>((resolve) => {
-							const channel = new MessageChannel();
-							const timer = setTimeout(() => {
-								channel.port1.close();
-								resolve(null);
-							}, 3000);
-							channel.port1.onmessage = (reply: MessageEvent<unknown>) => {
-								clearTimeout(timer);
-								channel.port1.close();
-								resolve(typeof reply.data === 'string' ? reply.data : null);
-							};
-							client.postMessage({ type: 'CLIENT_BUILD' }, [channel.port2]);
-						})
-				)
-			);
-			if (versions.every((value) => value !== null)) {
-				const keep = new Set([cacheName, ...versions.map((value) => `${prefix}${value}`)]);
-				for (const key of await caches.keys())
-					if (key.startsWith(prefix) && !keep.has(key)) await caches.delete(key);
+			const versions = await Promise.all(clients.map(clientBuild));
+			// Client IDs belong to documents, not tabs. Persist old document bindings across worker restarts.
+			const current = await caches.open(cacheName);
+			const builds = (await caches.keys()).filter((name) => name.startsWith(prefix));
+			for (const [index, build] of versions.entries()) {
+				if (build !== version && builds.length > 1)
+					await current.put(clientKey(clients[index].id), new Response(build ?? ''));
 			}
+			const keep = versions.includes(null)
+				? builds
+				: [cacheName, ...versions.map((v) => `${prefix}${v}`)];
+			const content = await caches.open(contentName);
+			const live = new Set<string>();
+			let canPrune = true;
+			for (const name of builds.filter((name) => keep.includes(name))) {
+				const data = await catalog(await caches.open(name)).catch(() => null);
+				if (!data) canPrune = false;
+				else for (const asset of Object.values(data).flat()) live.add(contentKey(asset));
+			}
+			for (const name of builds) {
+				if (name === cacheName) continue;
+				const old = await caches.open(name);
+				const data = await catalog(old).catch(() => null);
+				// Deployed URL-keyed caches: migrate one verified body at a time, without network.
+				for (const asset of data ? Object.values(data).flat() : []) {
+					if (!live.has(contentKey(asset))) continue;
+					const url = path(asset.path);
+					const response = await old.match(url);
+					if (!response) continue;
+					try {
+						if (!(await content.match(contentKey(asset))))
+							await content.put(contentKey(asset), await verified(asset, response));
+						await old.delete(url);
+					} catch {
+						/* Migration is optional when space is tight or the old body is invalid. */
+					}
+				}
+				if (!keep.includes(name)) await caches.delete(name);
+			}
+			if (canPrune)
+				for (const req of await content.keys()) {
+					if (!live.has(new URL(req.url).pathname)) await content.delete(req);
+				}
 		})()
 	);
 });
@@ -162,13 +205,17 @@ self.addEventListener('message', (event) => {
 								progress({});
 							}
 							const data = await catalog(cache);
+							const content = await caches.open(contentName);
 							const required: { url: string; asset?: Asset }[] = [
 								...runtime(model).map((url) => ({ url })),
 								...data[model].map((asset) => ({ url: path(asset.path), asset }))
 							];
 							let done = 0;
 							for (const item of required) {
-								if (!(await cache.match(item.url))) await download(cache, item.url, item.asset);
+								if (item.asset) {
+									if (!(await content.match(contentKey(item.asset))))
+										await download(content, item.url, item.asset);
+								} else if (!(await cache.match(item.url))) await download(cache, item.url);
 								progress({ done: ++done, total: required.length });
 							}
 						})();
@@ -216,6 +263,36 @@ self.addEventListener('fetch', (event) => {
 	event.respondWith(
 		(async () => {
 			const cache = await caches.open(cacheName);
+			if (url.pathname.startsWith(path('models/'))) {
+				const binding = event.clientId && (await cache.match(clientKey(event.clientId)));
+				let build = binding ? await binding.text() : version;
+				if (!build) {
+					const client = await self.clients.get(event.clientId);
+					build = (client && (await clientBuild(client))) || '';
+					if (!build) return Response.error();
+					await cache.put(clientKey(event.clientId), new Response(build));
+				}
+				const release = build === version ? cache : await caches.open(`${prefix}${build}`);
+				if (url.pathname === path('models/catalog.json'))
+					return (
+						(await release.match(url.pathname)) ??
+						(build === version ? fetch(request) : Response.error())
+					);
+				const data = await catalog(release).catch(() => null);
+				const asset =
+					data &&
+					Object.values(data)
+						.flat()
+						.find((asset) => path(asset.path) === url.pathname);
+				const body = asset && (await caches.match(contentKey(asset), { cacheName: contentName }));
+				if (body) return body;
+				// Never supply today's bytes to an old runtime after its expected blob was evicted.
+				if (build !== version)
+					return asset
+						? verified(asset, (await release.match(url.pathname)) ?? (await fetch(request)))
+						: Response.error();
+				return fetch(request);
+			}
 			// A single entry page preserves the request URL, including the exact prescription.
 			const cached = await cache.match(appNavigation ? root.pathname : url.pathname);
 			if (cached) return cached;

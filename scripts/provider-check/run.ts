@@ -10,7 +10,10 @@ async function check(id: 'mediapipe' | 'movenet', exercise: ExerciseId) {
 		video.onerror = () => reject(new Error('Clip decode failed'));
 		video.src = './clip.webm';
 	});
+	const startLoad = performance.now();
 	const model = await loadDetector(id, '/allez.gamebus.eu');
+	const loadMs = Math.round(performance.now() - startLoad);
+	let firstPoseMs: number | undefined;
 	const tracker = new Tracker(exercise);
 	const latency: number[] = [];
 	let missing = 0,
@@ -30,6 +33,7 @@ async function check(id: 'mediapipe' | 'movenet', exercise: ExerciseId) {
 				const start = performance.now();
 				const pose = await model.estimate(frame, timestamp);
 				latency.push(performance.now() - start);
+				if (!pose.missing) firstPoseMs ??= Math.round(performance.now() - startLoad);
 				if (
 					pose.width !== video.videoWidth ||
 					pose.height !== video.videoHeight ||
@@ -63,6 +67,10 @@ async function check(id: 'mediapipe' | 'movenet', exercise: ExerciseId) {
 	latency.sort((a, b) => a - b);
 	return {
 		id,
+		backend:
+			id === 'movenet' ? (await import('../../src/lib/movenet-runtime')).getBackend() : 'wasm',
+		loadMs,
+		firstPoseMs,
 		frames: latency.length + 1,
 		missing,
 		trackerLost: lost,

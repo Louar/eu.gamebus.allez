@@ -13,6 +13,8 @@ npm run dev
 
 The first dev/build run prepares the pinned model files (network access and `tar` required); subsequent builds reuse the verified assets. The browser fetches only the selected model from the same origin. Camera access needs localhost or HTTPS.
 
+Use **Prepare offline** before disconnecting. The browser keeps verified model assets separately from the versioned app and provider code, so preparing again after a UI-only update does not require another download of unchanged weights. If browser storage is cleared or evicted, prepare the model again while online.
+
 ## Build for Pages
 
 ```sh

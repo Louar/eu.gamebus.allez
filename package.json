@@ -16,7 +16,7 @@
 		"prebuild": "npm run assets",
 		"predev": "npm run assets",
 		"test:providers": "node scripts/check-providers.mjs",
-		"test:unit": "node --experimental-strip-types --test tests/workout.test.ts scripts/motion.test.mjs",
+		"test:unit": "node --experimental-strip-types --experimental-test-module-mocks --test tests/workout.test.ts scripts/motion.test.mjs scripts/camera.test.mjs",
 		"dev": "vite dev",
 		"build": "vite build",
 		"preview": "node scripts/serve-static.mjs",
@@ -64,6 +64,9 @@
 	},
 	"dependencies": {
 		"@mediapipe/tasks-vision": "0.10.32",
-		"@tensorflow/tfjs": "4.22.0"
+		"@tensorflow/tfjs-backend-cpu": "4.22.0",
+		"@tensorflow/tfjs-backend-webgl": "4.22.0",
+		"@tensorflow/tfjs-converter": "4.22.0",
+		"@tensorflow/tfjs-core": "4.22.0"
 	}
 }
