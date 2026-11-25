@@ -19,6 +19,4 @@ export const toggleVariants = tv({
 	},
 });
 
-export type ToggleVariant = VariantProps<typeof toggleVariants>["variant"];
-export type ToggleSize = VariantProps<typeof toggleVariants>["size"];
 export type ToggleVariants = VariantProps<typeof toggleVariants>;

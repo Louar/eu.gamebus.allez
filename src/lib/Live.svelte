@@ -5,7 +5,6 @@
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as Card from '#lib/components/ui/card/index.js';
 	import * as Alert from '#lib/components/ui/alert/index.js';
-	import { Toggle } from '#lib/components/ui/toggle/index.js';
 	import { DropdownMenu, Popover } from 'bits-ui';
 	import { Badge } from '#lib/components/ui/badge/index.js';
 	import { Session, type Workout } from './workout';
@@ -18,7 +17,7 @@
 	} from './motion';
 	import { camera } from './camera';
 	import { workoutBusy } from './offline';
-	import { name, feedback, cue, clock, reps, staticExercise } from './words';
+	import { name, feedback, clock, reps, staticExercise } from './words';
 	import Skeleton from './Skeleton.svelte';
 	import Demo from './Demo.svelte';
 	import LocalizedSelect from './LocalizedSelect.svelte';
@@ -26,8 +25,6 @@
 	import Play from '@lucide/svelte/icons/play';
 	import Pause from '@lucide/svelte/icons/pause';
 	import Scan from '@lucide/svelte/icons/scan-line';
-	import Volume2 from '@lucide/svelte/icons/volume-2';
-	import VolumeX from '@lucide/svelte/icons/volume-x';
 	import Square from '@lucide/svelte/icons/square';
 	import Repeat2 from '@lucide/svelte/icons/repeat-2';
 	import ListOrdered from '@lucide/svelte/icons/list-ordered';
@@ -40,16 +37,14 @@
 		cameraId = $bindable(''),
 		onmodelchange,
 		sound = $bindable(),
-		onexit,
-		immersive = false
+		onexit
 	}: {
 		workout: Workout;
 		model: 'mediapipe' | 'movenet';
 		cameraId?: string;
-		onmodelchange?: (model: 'mediapipe' | 'movenet') => void;
+		onmodelchange: (model: 'mediapipe' | 'movenet') => void;
 		sound: boolean;
 		onexit: () => void;
-		immersive?: boolean;
 	} = $props();
 	const session = new Session(untrack(() => workout));
 	let practice = $state<ExerciseId>(
@@ -75,7 +70,6 @@
 		beat = $state(0),
 		gone = false;
 	let activeId = $state<ExerciseId>(untrack(() => practice)),
-		position = $state(''),
 		circuit = $state<number | null>(session.circuitRemaining),
 		next = $state<ExerciseId | null>(null),
 		readout = $state('');
@@ -101,7 +95,7 @@
 		return () => workoutBusy.set(false);
 	});
 	function focusTitle(node: HTMLElement) {
-		if (immersive) node.focus({ preventScroll: true });
+		node.focus({ preventScroll: true });
 	}
 	const now = () => (replay ? virtual : performance.now() / 1000);
 	const epoch = () => (stage === 'practice' ? -1 - generation : session.epoch);
@@ -161,11 +155,6 @@
 		elapsed = clock(Math.floor(session.elapsed));
 		interval = 'duration' in s ? clock(session.remaining ?? 0) : '';
 		next = session.nextExercise;
-		position = m.position({
-			round: session.round,
-			step: session.stepIndex + 1,
-			total: workout.steps.length
-		});
 		if ('rest' in s) {
 			readout = clock(session.remaining ?? 0);
 			return;
@@ -179,10 +168,6 @@
 			readout = m.hold_target({ now: Math.floor((r?.continuous ?? 0) + 1e-8), target: s.hold });
 		else {
 			intervalCount = staticExercise(s.exercise) ? m.held_s({ n: seconds }) : reps(count);
-			readout = m.time_readout({
-				count: intervalCount,
-				left: m.time_left({ time: clock(session.remaining ?? 0) })
-			});
 		}
 	}
 	function step(t: number) {
@@ -377,8 +362,7 @@
 	{#if !image && (replay || !loaded)}<Scan class="scan" aria-hidden="true" />{/if}
 {/snippet}
 
-{#snippet selector(compact = false)}
-	{#if !compact}<small>{m.practice_select()}</small>{/if}
+{#snippet selector()}
 	<LocalizedSelect
 		label={m.practice_select()}
 		value={practice}
@@ -390,43 +374,7 @@
 	/>
 {/snippet}
 
-{#snippet controls()}
-	{#if error}
-		<Alert.Root variant="destructive">
-			<Alert.Title>{error === 'camera' ? m.camera_error() : m.model_error()}</Alert.Title>
-			<Alert.Description>
-				<Button variant="outline" onclick={() => void connect()}>{m.retry()}</Button>
-			</Alert.Description>
-		</Alert.Root>
-	{:else if !loaded}
-		<Alert.Root role="status"><Alert.Title>{m.loading()}</Alert.Title></Alert.Root>
-	{/if}
-	<div class="actions mt-auto flex flex-wrap gap-[0.55rem] pt-4 max-[730px]:mt-0">
-		<Toggle variant="outline" bind:pressed={sound}>
-			{#if sound}<Volume2 data-icon="inline-start" />{:else}<VolumeX
-					data-icon="inline-start"
-				/>{/if}{m.setup_sound()}
-		</Toggle>
-		{#if stage === 'practice'}<Button size="lg" disabled={!loaded} onclick={start}>
-				<Play data-icon="inline-start" />{m.start_workout()}
-			</Button><Button variant="outline" onclick={resetPractice}>
-				{m.restart_practice()}
-			</Button><Button variant="ghost" onclick={onexit}>{m.back_setup()}</Button>
-		{:else}<Button onclick={toggle}>
-				{#if paused}<Play data-icon="inline-start" />{m.resume()}{:else}<Pause
-						data-icon="inline-start"
-					/>{m.pause()}{/if}
-			</Button><Button variant="outline" onclick={finish}>{m.finish()}</Button>{/if}
-	</div>
-{/snippet}
-
-<section
-	data-testid="stage"
-	data-stage={stage}
-	data-immersive={immersive || undefined}
-	class="pt-8 pb-12"
-	class:immersive
->
+<section data-testid="stage" data-stage={stage} data-immersive="true" class="immersive">
 	{#if stage === 'summary'}
 		<div class="eyebrow flex items-center gap-2"><i></i>{m.private_session()}</div>
 		<h1 tabindex="-1" {@attach focusTitle}>{m.summary()}</h1>
@@ -482,7 +430,7 @@
 			{/each}
 		</div>
 		<Button onclick={onexit}>{m.back_setup()}</Button>
-	{:else if immersive}
+	{:else}
 		<div class="backdrop screen">
 			{@render preview()}
 		</div>
@@ -615,16 +563,14 @@
 								<Timer aria-hidden="true" />{elapsed}
 							</span>{/if}
 					{/if}
-					{#if onmodelchange}
-						<WorkoutSettings
-							compact
-							{model}
-							bind:cameraId
-							bind:sound
-							{onmodelchange}
-							onopenchange={pauseForDetails}
-						/>
-					{/if}
+					<WorkoutSettings
+						compact
+						{model}
+						bind:cameraId
+						bind:sound
+						{onmodelchange}
+						onopenchange={pauseForDetails}
+					/>
 				</div>
 				{#if error}
 					<Alert.Root variant="destructive">
@@ -648,14 +594,14 @@
 					<div class="exercise-name">
 						<small>{stage === 'practice' ? m.practice_title() : m.current_exercise()}</small>
 						<h1 class:practice-picker={stage === 'practice'} tabindex="-1" {@attach focusTitle}>
-							{#if stage === 'practice'}{@render selector(true)}{:else}{stage === 'countdown'
+							{#if stage === 'practice'}{@render selector()}{:else}{stage === 'countdown'
 									? m.ready()
 									: stage === 'rest'
 										? m.rest_title()
 										: name(activeId)}{/if}
 						</h1>
 					</div>
-					{#if stage === 'practice' || stage === 'exercise'}<Demo exercise={activeId} docked />
+					{#if stage === 'practice' || stage === 'exercise'}<Demo exercise={activeId} />
 					{:else if stage === 'rest' && next}<p data-testid="next">
 							{m.next_ex({ exercise: name(next) })}
 						</p>{/if}
@@ -684,59 +630,6 @@
 					{#if stage === 'exercise' && interval}<strong>{intervalCount}</strong>{/if}
 				</div>
 			</div>
-		</div>
-	{:else}
-		<div class="eyebrow flex items-center gap-2">
-			<i></i>{stage === 'practice' ? m.practice_title() : m.live()}
-		</div>
-		<h1>
-			{stage === 'practice'
-				? m.practice_title()
-				: stage === 'countdown'
-					? m.ready()
-					: stage === 'rest'
-						? m.rest_title()
-						: name(activeId)}
-		</h1>
-		{#if stage === 'practice'}<p>{m.practice_intro()}</p>{:else}<p data-testid="position">
-				{position}
-			</p>{/if}
-		<div
-			class="mt-[1.6rem] grid grid-cols-1 gap-5 min-[731px]:grid-cols-[minmax(0,1.6fr)_minmax(17rem,1fr)]"
-		>
-			<div
-				class="screen relative isolate min-h-88 overflow-hidden rounded-2xl max-[730px]:aspect-4/3 max-[730px]:min-h-0"
-			>
-				{@render preview()}
-				{#if stage === 'practice' || stage === 'exercise'}<Demo exercise={activeId} />{/if}
-			</div>
-			<aside
-				class="flex flex-col items-start gap-3 rounded-2xl border border-border bg-card p-[clamp(1.25rem,3vw,2rem)]"
-			>
-				{#if stage === 'practice'}{@render selector()}{/if}
-				{#if circuit !== null}<small data-testid="circuit-clock">
-						{m.circuit_left({ time: clock(circuit) })}
-					</small>{/if}
-				{#key beat}<div data-testid="counter" class="digits" class:pulse={beat > 0}>
-						{#if stage === 'practice'}{staticExercise(practice)
-								? m.held_s({ n: Math.floor(hold) })
-								: reps(value)}{:else if stage === 'countdown'}{Math.ceil(
-								countdown
-							)}{:else if stage === 'rest'}<span data-testid="rest-clock">
-								{readout}
-							</span>{:else}{readout}{/if}
-					</div>{/key}
-				{#if paused}<b>{m.paused()}</b>{:else if stage === 'rest'}{#if next}<p data-testid="next">
-							{m.next_ex({ exercise: name(next) })}
-						</p>{/if}{:else if stage !== 'countdown'}<b
-						data-testid="feedback"
-						class:lost={signal?.status === 'lost'}
-					>
-						{feedback(activeId, signal)}
-					</b>
-					<p>{cue(activeId)}</p>{/if}
-				{@render controls()}
-			</aside>
 		</div>
 	{/if}
 </section>
@@ -803,12 +696,6 @@
 			transform: scale(1.04);
 			color: #ca5320;
 		}
-	}
-	aside b {
-		color: #166a51;
-	}
-	aside .lost {
-		color: #a33b22;
 	}
 	@media (prefers-reduced-motion: reduce) {
 		.pulse {
@@ -1064,7 +951,7 @@
 		.exercise-name {
 			min-width: 0;
 		}
-		.pane {
+		.pane:where(:not(.command)) {
 			padding: 0.9rem;
 		}
 		.exercise-deck .pane {
@@ -1105,7 +992,7 @@
 			--gutter: 0.5rem;
 			gap: 0.5rem;
 		}
-		.pane {
+		.pane:where(:not(.command)) {
 			padding: 0.6rem 0.8rem;
 		}
 		.exercise-deck {

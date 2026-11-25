@@ -71,12 +71,14 @@ export async function workerRequest(
 		};
 		renew();
 		channel.port1.onmessage = ({ data }: MessageEvent<OfflineStatus | OfflineProgress>) => {
-			renew();
 			if (data.complete) {
 				clearTimeout(timer);
 				channel.port1.close();
 				resolve(data);
-			} else onprogress?.(data);
+			} else {
+				renew();
+				onprogress?.(data);
+			}
 		};
 		worker.postMessage({ type, model }, [channel.port2]);
 	});

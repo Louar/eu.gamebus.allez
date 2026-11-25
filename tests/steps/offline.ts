@@ -66,7 +66,7 @@ Given(
 		$testInfo.setTimeout(180_000);
 		if (server) {
 			const url = new URL(baseURL!);
-			url.port = server === 'preview ' ? '4176' : '4175';
+			url.port = String(Number(url.port) + (server === 'preview ' ? 3 : 2));
 			baseURL = url.href;
 		}
 		// The existing global replay hooks prohibit model fetches. Keep this real browser separate.
@@ -281,7 +281,7 @@ Then('the unseen workout survives an offline reload', async ({ page }) => {
 		await expect(state.page).toHaveURL(state.workoutURL!);
 		await expect(state.page.getByTestId('workout-preview')).toContainText(/squat.*23/is);
 		await expect(
-			state.page.getByRole('button', { name: 'Enable camera', exact: true })
+			state.page.getByRole('button', { name: 'Enable camera to start', exact: true })
 		).toBeVisible();
 		await expect(state.page.locator('video')).toHaveCount(0);
 		expect((await message(state.page, 'STATUS', state.model)).at(-1)!.ready).toBe(true);
@@ -367,7 +367,7 @@ Then('a previously unseen root workout query can start offline', async ({ page }
 	await state.page.getByRole('button', { name: 'Start workout', exact: true }).click();
 	await expect(state.page.getByTestId('stage')).toHaveAttribute('data-stage', 'practice');
 	await expect(state.page).toHaveURL(
-		`${state.baseURL}workouts/${encoded}/?model=${state.model}&sound=0`
+		`${state.baseURL}workouts/${encoded}/?model=${state.model}&sound=1`
 	);
 	const guide = state.page.getByRole('figure', { name: 'Movement guide' });
 	await expect(guide).toBeVisible();
@@ -411,7 +411,9 @@ Then('the incomplete provider is not ready offline', async ({ page }) => {
 	expect(status.ready).toBe(false);
 	expect(status.available).not.toContain(state.model);
 	await state.page.reload();
-	await expect(state.page.getByTestId('offline-status')).not.toContainText(/ready for offline/i);
+	const notice = state.page.getByTestId('offline-status');
+	await expect(notice).toContainText('not available offline');
+	await expect(notice).not.toContainText('Ready offline:');
 });
 
 When('a cached model shard is evicted and I disconnect', async ({ page }) => {

@@ -68,7 +68,6 @@
 	{#if workout && entered}
 		{#key workout}
 			<Live
-				immersive
 				{workout}
 				{model}
 				bind:cameraId
@@ -82,9 +81,7 @@
 			class="grid min-h-svh place-items-center bg-studio-ink bg-[radial-gradient(#ffffff16_1px,transparent_1px)] bg-size-[18px_18px] p-[clamp(1rem,5vw,3rem)]"
 			data-testid="workout-preview"
 		>
-			<Card.Root
-				class="w-full max-w-xl  [--card:var(--studio-paper)]"
-			>
+			<Card.Root class="w-full max-w-xl  [--card:var(--studio-paper)]">
 				<Card.Header>
 					{#if workout}
 						<Card.Action>

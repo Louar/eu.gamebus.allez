@@ -32,12 +32,10 @@
 
 	let {
 		workout,
-		planner,
-		onpractice
+		planner
 	}: {
 		workout: Workout;
-		planner?: { model: 'mediapipe' | 'movenet'; sound: boolean };
-		onpractice?: (w: Workout, model: 'mediapipe' | 'movenet', sound: boolean) => void;
+		planner: { model: 'mediapipe' | 'movenet'; sound: boolean };
 	} = $props();
 	type Kind = 'reps' | 'duration' | 'hold' | 'rest';
 	type Row = { id: number; exercise: ExerciseId; kind: Kind; value: number | undefined };
@@ -64,9 +62,9 @@
 		seed.repeat && 'duration' in seed.repeat ? seed.repeat.duration : 180
 	);
 	let rest = $state<number | undefined>(seed.rest ?? 0);
-	let model = $state<'mediapipe' | 'movenet'>(untrack(() => planner?.model ?? 'mediapipe')),
+	let model = $state(untrack(() => planner.model)),
 		edit = $state(false);
-	const sound = untrack(() => planner?.sound ?? true);
+	const sound = untrack(() => planner.sound);
 	let invalid = $state(false),
 		tooLong = $state(false);
 	let form: HTMLFormElement;
@@ -120,7 +118,6 @@
 		if ($updateLocked) return;
 		const w = validated();
 		if (!w) return;
-		if (!planner) return onpractice?.(w, model, sound);
 		const encoded = encodedWorkout(w);
 		if (encoded) void goto(resolve(plannerPath(encoded)));
 	}
@@ -287,12 +284,12 @@
 				>
 					<Button
 						size="lg"
-						class="h-14 w-full text-lg gap-3 font-bold border-none shadow-md"
+						class="h-14 w-full gap-3 border-none text-lg font-bold shadow-md"
 						disabled={$updateLocked}
 						onclick={practice}
 					>
 						<Play data-icon="inline-start" class="size-5" aria-hidden="true" />
-						{planner ? m.start_workout() : m.setup_practice()}
+						{m.start_workout()}
 					</Button>
 					<div role="status" class="text-sm leading-relaxed empty:hidden">
 						{#if tooLong}{m.setup_too_long()}{/if}

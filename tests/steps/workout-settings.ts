@@ -4,12 +4,12 @@ import { encodeWorkout } from '../../src/lib/workout';
 
 const { Given, When, Then } = createBdd();
 
-Then('I can enable sound in the preview settings', async ({ page }) => {
+Then('I can mute sound in the preview settings', async ({ page }) => {
 	await page.getByRole('button', { name: 'Settings', exact: true }).click();
 	const sound = page.getByRole('menuitemcheckbox', { name: 'Sound cues', exact: true });
-	await expect(sound).not.toBeChecked();
-	await sound.click();
 	await expect(sound).toBeChecked();
+	await sound.click();
+	await expect(sound).not.toBeChecked();
 	await page.keyboard.press('Escape');
 });
 
@@ -17,6 +17,8 @@ Then('I can toggle sound from the live settings', async ({ page }) => {
 	await expect(page.getByRole('button', { name: 'Sound cues', exact: true })).toHaveCount(0);
 	await page.getByRole('button', { name: 'Settings', exact: true }).click();
 	const sound = page.getByRole('menuitemcheckbox', { name: 'Sound cues', exact: true });
+	await expect(sound).toHaveAttribute('aria-checked', 'false');
+	await sound.click();
 	await expect(sound).toBeChecked();
 	await sound.click();
 	await expect(sound).not.toBeChecked();

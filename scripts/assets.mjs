@@ -72,8 +72,9 @@ if (
 		);
 		execFileSync('tar', ['-xzf', archive, '-C', temp, ...Object.keys(files)]);
 		for (const [name, digest] of Object.entries(files)) {
-			if (!(await valid(join(temp, name), digest))) throw new Error(`Invalid shard: ${name}`);
-			await publish(`${mn}/${name}`, await readFile(join(temp, name)));
+			const bytes = await readFile(join(temp, name));
+			if (hash(bytes) !== digest) throw new Error(`Invalid shard: ${name}`);
+			await publish(`${mn}/${name}`, bytes);
 		}
 	} finally {
 		await rm(temp, { recursive: true, force: true });

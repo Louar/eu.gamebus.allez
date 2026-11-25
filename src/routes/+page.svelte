@@ -7,7 +7,7 @@
 	import * as ToggleGroup from '#lib/components/ui/toggle-group/index.js';
 	import * as Card from '#lib/components/ui/card/index.js';
 	let workout = $state<Workout>(example),
-		error = $state(''),
+		error = $state(false),
 		ready = $state(false);
 	let model = $state<'mediapipe' | 'movenet'>('mediapipe'),
 		sound = $state(true);
@@ -23,7 +23,7 @@
 			try {
 				workout = decodeWorkout(encoded);
 			} catch {
-				error = m.invalid_link();
+				error = true;
 			}
 		}
 		ready = true;

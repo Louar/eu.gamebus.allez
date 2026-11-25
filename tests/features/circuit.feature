@@ -13,10 +13,10 @@ Feature: Follow the prescribed circuit on the static site
     When I leave practice and start the countdown
     Then the counter reads "0 / 3"
 
-  Scenario: Edit, copy and reopen a workout link
+  Scenario: Edit a workout and reopen its address-bar link
     Given my circuit prescribes 3 reps of "squat"
-    When I change the first target to 7 and copy the workout link
-    And I open the copied workout link
+    When I change the first target to 7 and start the workout
+    And I open the address-bar link and return to setup without enabling the camera
     Then the editable target is 7 reps of "squat"
 
   Scenario: A malformed link opens an actionable setup screen

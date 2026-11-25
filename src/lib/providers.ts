@@ -79,15 +79,17 @@ export async function loadDetector(
 			try {
 				const values = await output.data();
 				const points: PoseFrame['points'] = {};
+				let confident = 0;
 				coco.forEach((name, i) => {
+					const score = values[3 * i + 2];
+					if (score >= 0.3) confident++;
 					points[name] = {
 						x: (values[3 * i + 1] * size - dx) / scale,
 						y: (values[3 * i] * size - dy) / scale,
-						score: values[3 * i + 2]
+						score
 					};
 				});
-				const missing = Object.values(points).filter((p) => p.score >= 0.3).length < 4;
-				return { timestamp, width, height, provider: id, points, missing };
+				return { timestamp, width, height, provider: id, points, missing: confident < 4 };
 			} finally {
 				output.dispose();
 			}

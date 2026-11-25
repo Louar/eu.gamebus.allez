@@ -1,19 +1,16 @@
 <script lang="ts">
-	import StudioHero from './StudioHero.svelte';
 	import SetupCircuit from './SetupCircuit.svelte';
-	import { example, type Workout } from './workout';
+	import type { Workout } from './workout';
 	import * as m from '#lib/paraglide/messages.js';
 	import * as Alert from '#lib/components/ui/alert/index.js';
 	let {
-		workout = example,
+		workout,
 		error,
-		planner,
-		onpractice
+		planner
 	}: {
 		workout: Workout;
-		error: string;
-		planner?: { model: 'mediapipe' | 'movenet'; sound: boolean };
-		onpractice?: (w: Workout, model: 'mediapipe' | 'movenet', sound: boolean) => void;
+		error: boolean;
+		planner: { model: 'mediapipe' | 'movenet'; sound: boolean };
 	} = $props();
 </script>
 
@@ -22,13 +19,12 @@
 	data-testid="stage"
 	data-stage="setup"
 >
-	{#if !planner}<StudioHero />{/if}
 	{#if error}
 		<Alert.Root variant="destructive">
 			<Alert.Description>{m.setup_bad_link()}</Alert.Description>
 		</Alert.Root>
 	{/if}
-	{#key workout}<SetupCircuit {workout} {planner} {onpractice} />{/key}
+	{#key workout}<SetupCircuit {workout} {planner} />{/key}
 </div>
 
 <style>

@@ -48,10 +48,8 @@ When('I move the first planner step down with the keyboard', async ({ page }) =>
 Then('planner inputs show time and repetition suffixes', async ({ page }) => {
 	await expect(
 		circuit(page).locator('[data-row]').first().locator('[data-slot="badge"]')
-	).toHaveText('10 ×');
-	await expect(
-		page.getByRole('region', { name: 'Session planner' }).locator('dd').nth(1)
-	).toHaveText('03 ×');
+	).toHaveText('5 ×');
+	await expect(page.getByText('Rounds', { exact: true }).locator('+ dd')).toHaveText('03');
 	await page.getByRole('button', { name: 'Edit circuit' }).click();
 	const suffix = (input: ReturnType<Page['getByRole']>) =>
 		input.locator('..').locator('[data-slot="input-group-addon"][data-align="inline-end"]');
@@ -61,7 +59,7 @@ Then('planner inputs show time and repetition suffixes', async ({ page }) => {
 	await expect(
 		suffix(page.getByRole('spinbutton', { name: 'Rest between exercises', exact: true }))
 	).toHaveText('s');
-	for (const [i, unit] of ['×', 's', 's', 's'].entries()) {
+	for (const [i, unit] of ['×', 's', 's', 's', '×'].entries()) {
 		await expect(
 			suffix(circuit(page).locator('[data-row]').nth(i).getByRole('spinbutton'))
 		).toHaveText(unit);
@@ -94,8 +92,8 @@ Then('the mobile start action stays visible while scrolling the planner', async 
 	const start = page.getByRole('button', { name: 'Start workout', exact: true });
 	await expect(footer).toHaveCSS('position', 'fixed');
 	await expect(start).toBeInViewport({ ratio: 1 });
-	await page.getByRole('button', { name: 'Edit circuit' }).click();
 	await page.getByText('Private by design', { exact: true }).scrollIntoViewIfNeeded();
+	expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
 	await expect(start).toBeInViewport({ ratio: 1 });
 	const box = (await footer.boundingBox())!;
 	expect(box.y + box.height).toBeCloseTo(600, 0);

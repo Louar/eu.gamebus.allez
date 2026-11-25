@@ -14,7 +14,7 @@ type Replay = {
 type ReplayWindow = typeof window & { __alez: Replay };
 const violations = new WeakMap<Page, string[]>();
 const oldRequest = new WeakMap<Page, number>();
-const copied = new WeakMap<Page, string>();
+const shared = new WeakMap<Page, string>();
 const button = (page: Page, name: string) => page.getByRole('button', { name, exact: true });
 const stage = (page: Page, name: string) =>
 	expect(page.getByTestId('stage')).toHaveAttribute('data-stage', name);
@@ -294,33 +294,36 @@ Then('I can see the squat key poses without obscuring my counter', async ({ page
 	).toBe(true);
 });
 Then('setup shows a link error and an edit action', async ({ page }) => {
-	await expect(page.getByRole('alert')).toContainText(/link|workout/i);
+	await expect(page.getByTestId('stage').getByRole('alert')).toContainText(/link|workout/i);
 	await expect(button(page, 'Edit circuit')).toBeVisible();
 });
 When(
-	'I change the first target to {int} and copy the workout link',
-	async ({ page, context, baseURL }, target: number) => {
-		await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+	'I change the first target to {int} and start the workout',
+	async ({ page, baseURL }, target: number) => {
 		await button(page, 'Edit circuit').click();
 		await page.getByLabel('Target 1', { exact: true }).fill(String(target));
 		await button(page, 'Done editing').click();
-		await button(page, 'Copy workout link').click();
-		await expect
-			.poll(() => page.evaluate(() => navigator.clipboard.readText()))
-			.toContain(`${baseURL}workouts/`);
-		const url = new URL(await page.evaluate(() => navigator.clipboard.readText()));
+		await button(page, 'Start workout').click();
+		await stage(page, 'practice');
+		const url = new URL(page.url());
+		expect(url.origin).toBe(new URL(baseURL!).origin);
 		expect(url.pathname).toBe(
 			`${new URL(baseURL!).pathname}workouts/${url.pathname.split('/').at(-2)}/`
 		);
 		expect(url.pathname.split('/').at(-2)).toMatch(/^[\w-]+$/);
 		expect(url.searchParams.has('workout')).toBe(false);
-		copied.set(page, url.href);
+		shared.set(page, url.href);
 	}
 );
-When('I open the copied workout link', async ({ page }) => {
-	await page.goto(copied.get(page)!);
-	await page.getByRole('link', { name: 'Back to setup', exact: true }).click();
-});
+When(
+	'I open the address-bar link and return to setup without enabling the camera',
+	async ({ page }) => {
+		await page.goto(shared.get(page)!);
+		await expect(button(page, 'Enable camera to start')).toBeVisible();
+		await expect(page.locator('video')).toHaveCount(0);
+		await page.getByRole('link', { name: 'Back to setup', exact: true }).click();
+	}
+);
 Then(
 	'the editable target is {int} reps of {string}',
 	async ({ page }, target: number, exercise: string) => {
@@ -342,7 +345,7 @@ Then(
 );
 When('I switch setup to Dutch', async ({ page }) => {
 	await page.getByRole('radio', { name: 'Nederlands', exact: true }).click();
-	await expect(page.getByRole('heading', { name: 'Trainingsstudio' })).toBeVisible();
+	await expect(page.getByRole('heading', { name: 'Trainingsschema', exact: true })).toBeVisible();
 	await expect(page.locator('html')).toHaveAttribute('lang', 'nl');
 });
 When('I open Dutch practice for {string}', async ({ page }, exercise: string) => {

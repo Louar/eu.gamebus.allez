@@ -2,7 +2,7 @@ Feature: Workout settings
 
   Scenario: Sound is controlled from settings before and during practice
     Given a workout with two available cameras
-    Then I can enable sound in the preview settings
+    Then I can mute sound in the preview settings
     When I enter practice with the selected settings
     Then I can toggle sound from the live settings
 

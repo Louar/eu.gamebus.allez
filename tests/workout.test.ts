@@ -34,9 +34,21 @@ function near(actual: number, expected: number) {
 	assert.ok(Math.abs(actual - expected) < 1e-8, `${actual} != ${expected}`);
 }
 
-test('canonical example and UTF-8 JSON round trip', () => {
-	assert.equal(encodeWorkout(example), encodedExample);
-	assert.deepEqual(decodeWorkout(encodedExample), example);
+test('previously shared links stay canonical when the planner default changes', () => {
+	const shared: Workout = {
+		v: 1,
+		rest: 15,
+		steps: [
+			{ exercise: 'squat', reps: 10 },
+			{ exercise: 'jumping-jack', duration: 20 },
+			{ rest: 10 },
+			{ exercise: 'plank', hold: 30 }
+		],
+		repeat: { rounds: 3 }
+	};
+	assert.equal(encodeWorkout(shared), encodedExample);
+	assert.deepEqual(decodeWorkout(encodedExample), shared);
+	assert.deepEqual(decodeWorkout(encodeWorkout(example)), example);
 	const w = { v: 1, steps: [squat, squat], rest: 0, repeat: { duration: 600 } } as const;
 	assert.deepEqual(decodeWorkout(encodeWorkout(parseWorkout(w))), w);
 	assert.deepEqual(parseWorkout({ v: 1, steps: [squat] }), { v: 1, steps: [squat] });

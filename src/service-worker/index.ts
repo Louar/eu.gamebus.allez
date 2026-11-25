@@ -53,14 +53,15 @@ async function status(model: Model) {
 	const available: Model[] = [];
 	if (data && shellReady)
 		for (const id of ['mediapipe', 'movenet'] as const) {
-			const required = [...runtime(id), ...data[id].map((asset) => path(asset.path))];
+			const chunks = runtime(id);
+			const required = [...chunks, ...data[id].map((asset) => path(asset.path))];
 			if (
-				runtime(id).length &&
+				chunks.length &&
 				(await Promise.all(required.map((url) => cache.match(url)))).every(Boolean)
 			)
 				available.push(id);
 		}
-	return { ready: shellReady && available.includes(model), available, version, complete: true };
+	return { ready: available.includes(model), available, version, complete: true };
 }
 
 self.addEventListener('install', (event) => {

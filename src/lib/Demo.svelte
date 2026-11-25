@@ -3,7 +3,7 @@
 	import * as m from '#lib/paraglide/messages.js';
 	import { demoFrames, type ExerciseId } from './motion';
 	import Skeleton from './Skeleton.svelte';
-	let { exercise, docked = false }: { exercise: ExerciseId; docked?: boolean } = $props();
+	let { exercise }: { exercise: ExerciseId } = $props();
 	let frames = $derived(demoFrames(exercise));
 	let time = $state(0);
 	let reduced = $state(false);
@@ -47,8 +47,7 @@
 	});
 </script>
 
-<figure class:docked aria-label={m.demo()}>
-	{#if !docked}<figcaption><i></i>{m.demo()}</figcaption>{/if}
+<figure class="docked" aria-label={m.demo()}>
 	<div class="poses">
 		{#if reduced}{#each frames as pose, i (i)}<Skeleton frame={pose} demo />{/each}{:else}<Skeleton
 				{frame}
@@ -59,32 +58,9 @@
 
 <style>
 	figure {
-		position: absolute;
-		inset: auto 0.8rem 0.8rem auto;
 		border-radius: 0.65rem;
-		background: #1c242bfa;
 		color: white;
-		border: 1px solid #647079;
-		width: clamp(7.5rem, 21%, 12rem);
-		padding: 0.55rem;
-		box-shadow: 0 5px 20px #0002;
-	}
-	figcaption {
-		display: flex;
-		align-items: center;
-		gap: 0.4rem;
-		font-size: 0.6rem;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		font-weight: 700;
-	}
-	figure.docked {
-		position: static;
 		width: 100%;
-		padding: 0;
-		border: 0;
-		background: transparent;
-		box-shadow: none;
 	}
 	.docked .poses {
 		height: clamp(5rem, 18dvh, 12rem);
@@ -102,15 +78,8 @@
 			height: 1.8rem;
 		}
 	}
-	i {
-		width: 0.4rem;
-		height: 0.4rem;
-		border-radius: 50%;
-		background: #ff9160;
-	}
 	.poses {
 		display: flex;
-		height: clamp(3.5rem, 10vw, 6rem);
 		background-image: radial-gradient(#ffffff29 1px, transparent 1px);
 		background-size: 12px 12px;
 	}
@@ -118,16 +87,10 @@
 		min-width: 0;
 	}
 	@media (prefers-reduced-motion: reduce) {
-		figure:not(.docked):has(:global(svg:nth-child(4))) {
-			width: min(60%, 19rem);
-		}
 		.poses:has(:global(svg:nth-child(4))) {
 			display: grid;
 			grid-template-columns: repeat(4, minmax(0, 1fr));
 			height: auto;
-		}
-		figure:not(.docked) .poses:has(:global(svg:nth-child(4))) :global(svg) {
-			height: 3rem;
 		}
 		.docked .poses {
 			display: flex;

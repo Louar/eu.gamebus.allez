@@ -46,6 +46,7 @@ export interface ExerciseTracker {
 
 const sides = ['left', 'right'] as const;
 const joints = ['shoulder', 'elbow', 'wrist', 'hip', 'knee', 'ankle'] as const;
+const legAndTorsoJoints = joints.filter((j) => j !== 'elbow' && j !== 'wrist');
 export const bones: [string, string][] = [
 	['left_shoulder', 'right_shoulder'],
 	['left_hip', 'right_hip']
@@ -89,7 +90,7 @@ export function posture(id: ExerciseId, f: PoseFrame, ground?: number): Phase {
 		q.score >= 0.25;
 	const jack = id === 'front-jack' || id === 'jumping-jack';
 	const needsArms = jack || id === 'push-up' || id === 'burpee' || id === 'plank';
-	const needed = joints.filter((j) => needsArms || (j !== 'elbow' && j !== 'wrist'));
+	const needed = needsArms ? joints : legAndTorsoJoints;
 	const visible = sides.filter((s) => needed.every((j) => usable(p[`${s}_${j}`])));
 	if (!visible.length || (jack && visible.length !== 2)) return 'lost';
 	const quality = (s: string) => Math.min(...needed.map((j) => p[`${s}_${j}`].score));
@@ -97,9 +98,7 @@ export function posture(id: ExerciseId, f: PoseFrame, ground?: number): Phase {
 	const [s, e, w, h, k, a] = joints.map((j) => p[`${side}_${j}`]);
 	const scale = dist(s, h);
 	if (scale < 2) return 'lost';
-	const knee = angle(h, k, a),
-		hip = angle(s, h, a);
-	const straight = id === 'plank' ? hip > 145 && knee > 145 : hip > 135 && knee > 135;
+	const knee = angle(h, k, a);
 	const upright = (h.y - s.y) / scale > 0.72,
 		floor = Math.abs(h.y - s.y) / scale < 0.63;
 	const stand = upright && knee > 153 && a.y - h.y > scale * 0.66;
@@ -141,7 +140,8 @@ export function posture(id: ExerciseId, f: PoseFrame, ground?: number): Phase {
 		if (stand) return 'standing';
 		if (squat) return 'tuck';
 	}
-	if (floor && straight) {
+	const threshold = id === 'plank' ? 145 : 135;
+	if (floor && knee > threshold && angle(s, h, a) > threshold) {
 		const elbow = angle(s, e, w);
 		if (id === 'plank')
 			return elbow > 53 &&

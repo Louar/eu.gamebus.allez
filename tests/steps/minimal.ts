@@ -4,7 +4,8 @@ import { decodeWorkout, encodeWorkout } from '../../src/lib/workout';
 
 const { Given, When, Then } = createBdd();
 const paths = new WeakMap<Page, string>();
-const enable = (page: Page) => page.getByRole('button', { name: 'Enable camera', exact: true });
+const enable = (page: Page) =>
+	page.getByRole('button', { name: 'Enable camera to start', exact: true });
 const start = (page: Page) => page.getByRole('button', { name: 'Start workout', exact: true });
 const preview = (page: Page) => page.getByTestId('workout-preview');
 const segment = (url: URL) => url.pathname.split('/').at(-2)!;
@@ -18,23 +19,16 @@ Given('I edit the minimal planner to prescribe 17 squats', async ({ page }) => {
 	await page.getByRole('option', { name: /MoveNet.*Thunder/i }).click();
 });
 
-When(
-	'I copy the minimal workout link and start from the planner',
-	async ({ page, context, baseURL }) => {
-		await context.grantPermissions(['clipboard-read', 'clipboard-write']);
-		await page.getByRole('button', { name: 'Copy workout link' }).click();
-		await expect
-			.poll(() => page.evaluate(() => navigator.clipboard.readText()))
-			.toContain(`${baseURL}workouts/`);
-		paths.set(page, await page.evaluate(() => navigator.clipboard.readText()));
-		await start(page).click();
-		await expect(page.getByTestId('stage')).toHaveAttribute('data-stage', 'practice');
-	}
-);
+When('I start from the planner and share the address-bar link', async ({ page }) => {
+	await start(page).click();
+	await expect(page.getByTestId('stage')).toHaveAttribute('data-stage', 'practice');
+	paths.set(page, page.url());
+});
 
-Then('the workout URL contains the edited prescription and settings', async ({ page }) => {
-	await expect(page).toHaveURL(paths.get(page)!);
-	const url = new URL(page.url());
+Then('the workout URL contains the edited prescription and settings', async ({ page, baseURL }) => {
+	const url = new URL(paths.get(page)!);
+	await expect(page).toHaveURL(url.href);
+	expect(url.href).toBe(`${baseURL}workouts/${segment(url)}/${url.search}`);
 	expect(decodeWorkout(segment(url)).steps[0]).toEqual({ exercise: 'squat', reps: 17 });
 	expect(url.searchParams.get('model')).toBe('movenet');
 	expect(url.searchParams.has('workout')).toBe(false);
@@ -286,25 +280,33 @@ Then('rounds are read-only and I can inspect the circuit while paused', async ({
 	await expect(page.getByTestId('stage')).toHaveAttribute('data-stage', 'summary');
 });
 
-Then('I can toggle workout sound without interrupting the exercise', async ({ page }) => {
-	await page.getByRole('button', { name: 'Settings', exact: true }).click();
-	const sound = page.getByRole('menuitemcheckbox', { name: 'Sound cues', exact: true });
-	const stage = page.getByTestId('stage');
-	await expect(sound).toHaveAttribute('aria-checked', 'false');
-	await sound.click();
-	await expect(sound).toHaveAttribute('aria-checked', 'true');
-	await expect(stage).toHaveAttribute('data-stage', 'exercise');
-	await sound.click();
-	await expect(sound).toHaveAttribute('aria-checked', 'false');
-	await expect(stage).toHaveAttribute('data-stage', 'exercise');
-	await sound.click();
-	await page.keyboard.press('Escape');
-	await expect(page.getByRole('menu')).toHaveCount(0);
-	await page.getByRole('button', { name: 'Pause', exact: true }).click();
-	await page.getByRole('menuitem', { name: 'Finish', exact: true }).click();
-	await page.getByRole('button', { name: 'Back to setup', exact: true }).click();
-	await expect(page.getByRole('switch', { name: 'Sound cues' })).toBeChecked();
-});
+Then(
+	'I can toggle workout sound while paused and keep the setting for the next start',
+	async ({ page }) => {
+		await page.getByRole('button', { name: 'Settings', exact: true }).click();
+		const sound = page.getByRole('menuitemcheckbox', { name: 'Sound cues', exact: true });
+		const stage = page.getByTestId('stage');
+		await expect(sound).toBeChecked();
+		await sound.click();
+		await expect(sound).not.toBeChecked();
+		await expect(stage).toHaveAttribute('data-stage', 'exercise');
+		await sound.click();
+		await expect(sound).toBeChecked();
+		await expect(stage).toHaveAttribute('data-stage', 'exercise');
+		await sound.click();
+		await page.keyboard.press('Escape');
+		await expect(page.getByRole('menu')).toHaveCount(0);
+		const pause = page.getByRole('button', { name: 'Pause', exact: true });
+		await expect(pause).toHaveAttribute('aria-pressed', 'true');
+		await pause.click();
+		await page.getByRole('menuitem', { name: 'Finish', exact: true }).click();
+		await page.getByRole('button', { name: 'Back to setup', exact: true }).click();
+		await start(page).click();
+		await expect(stage).toHaveAttribute('data-stage', 'practice');
+		await page.getByRole('button', { name: 'Settings', exact: true }).click();
+		await expect(sound).toHaveAttribute('aria-checked', 'false');
+	}
+);
 
 Then('a missing static asset returns the Pages 404 document', async ({ request }) => {
 	const shell = await request.get('404.html');

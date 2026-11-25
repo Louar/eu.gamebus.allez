@@ -2,7 +2,7 @@ Feature: Portable minimal workout paths on a static Pages site
 
   Scenario: A planner prescription survives sharing and starting
     Given I edit the minimal planner to prescribe 17 squats
-    When I copy the minimal workout link and start from the planner
+    When I start from the planner and share the address-bar link
     Then the workout URL contains the edited prescription and settings
     When I reload the shared workout path
     Then I can preview 17 squats before enabling the camera
@@ -75,7 +75,7 @@ Feature: Portable minimal workout paths on a static Pages site
   Scenario: Sound can be changed during a workout
     Given I open a minimal timed squat link as a new visitor
     When I enable the workout camera and start the countdown
-    Then I can toggle workout sound without interrupting the exercise
+    Then I can toggle workout sound while paused and keep the setting for the next start
 
   Scenario: Pages returns its error document instead of rewriting missing paths to 200
     Then a missing static asset returns the Pages 404 document

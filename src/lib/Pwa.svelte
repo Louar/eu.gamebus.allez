@@ -130,19 +130,11 @@
 
 {#if online && (waiting || reloadNeeded) && !$workoutBusy && !applying && !dismissed}
 	<UpdateBanner
-		source="manual"
-		available={true}
-		position="top-center"
 		title={m.offline_update_title()}
 		description={blocked ? m.offline_update_busy() : m.offline_update()}
 		reloadLabel={m.offline_apply()}
 		dismissLabel={m.offline_update_later()}
-		data-testid="pwa-update"
 		ondismiss={() => (dismissed = true)}
-		onreload={() => {
-			// Keep activation and reload under the cross-tab workout safety protocol.
-			apply();
-			return false;
-		}}
+		onreload={apply}
 	/>
 {/if}

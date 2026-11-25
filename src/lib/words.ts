@@ -41,8 +41,6 @@ export const feedback = (id: ExerciseId, u?: { status: string; phase: string } |
 		: u?.status === 'tracking' && phases[u.phase]
 			? phases[u.phase]()
 			: waits[id]();
-export const cue = (id: ExerciseId) =>
-	id === 'front-jack' ? m.angle_cue() : id === 'jumping-jack' ? m.front_cue() : m.side_cue();
 export const reps = (n: number) => (n === 1 ? m.rep_one() : m.rep_many({ n }));
 export const staticExercise = (id: ExerciseId) => id === 'plank' || id === 'squat-hold';
 export function clock(seconds: number) {
