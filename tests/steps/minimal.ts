@@ -139,14 +139,35 @@ Then('the practice cards and controls fit the viewport', async ({ page }) => {
 		expect(exercise.y + exercise.height).toBeLessThanOrEqual(progress.y);
 		expect(exercise.x).toBeGreaterThan(viewport.width / 2);
 	}
-	await page.getByRole('button', { name: 'Pause', exact: true }).click();
-	await expect(page.getByRole('menu')).toHaveCount(0);
-	await page.getByRole('button', { name: 'Pause', exact: true }).click();
-	await page.getByRole('menuitem', { name: 'Resume', exact: true }).click();
-	await expect(page.getByRole('button', { name: 'Pause', exact: true })).toHaveAttribute(
-		'aria-pressed',
-		'false'
+	const controls = page.getByTestId('session-controls');
+	await expect(controls.getByRole('button', { name: 'Pause', exact: true })).toHaveCount(0);
+	await expect(controls.getByRole('combobox')).toHaveCount(0);
+	await expect(controls.getByRole('button', { name: 'Start workout', exact: true })).toHaveText(
+		'Start workout'
 	);
+	const picker = page
+		.getByTestId('current-exercise')
+		.getByRole('combobox', { name: 'Practice exercise' });
+	await expect(picker).toBeVisible();
+	const headingSize = await picker
+		.locator('..')
+		.evaluate((node) => getComputedStyle(node).fontSize);
+	await expect(picker).toHaveCSS('font-size', headingSize);
+	await picker.click();
+	await page.getByRole('option', { name: 'Jumping-jack', exact: true }).click();
+	await expect(picker).toHaveText('Jumping-jack');
+	await expect(page.getByTestId('counter')).toHaveText('0');
+	for (const button of await controls.getByRole('button').all()) {
+		const radii = await button.evaluate((node) => {
+			const card = node.closest('[data-testid="session-controls"]')!;
+			return {
+				inner: parseFloat(getComputedStyle(node).borderTopRightRadius),
+				outer: parseFloat(getComputedStyle(card).borderTopRightRadius),
+				padding: parseFloat(getComputedStyle(card).paddingTop)
+			};
+		});
+		expect(radii.inner).toBeCloseTo(radii.outer - radii.padding);
+	}
 });
 
 Then('the immersive timed workout HUD fits the viewport', async ({ page }) => {
@@ -247,17 +268,18 @@ Then('I can adjust rounds and inspect the read-only circuit while paused', async
 });
 
 Then('I can toggle workout sound without interrupting the exercise', async ({ page }) => {
-	const sound = page.getByRole('button', { name: 'Sound cues', exact: true });
+	await page.getByRole('button', { name: 'Studio settings', exact: true }).click();
+	const sound = page.getByRole('menuitemcheckbox', { name: 'Sound cues', exact: true });
 	const stage = page.getByTestId('stage');
-	await expect(sound).toHaveAttribute('aria-pressed', 'false');
+	await expect(sound).toHaveAttribute('aria-checked', 'false');
 	await sound.click();
-	await expect(sound).toHaveAttribute('aria-pressed', 'true');
+	await expect(sound).toHaveAttribute('aria-checked', 'true');
 	await expect(stage).toHaveAttribute('data-stage', 'exercise');
 	await sound.click();
-	await expect(sound).toHaveAttribute('aria-pressed', 'false');
+	await expect(sound).toHaveAttribute('aria-checked', 'false');
 	await expect(stage).toHaveAttribute('data-stage', 'exercise');
 	await sound.click();
-	await page.getByRole('button', { name: 'Pause', exact: true }).click();
+	await page.keyboard.press('Escape');
 	await expect(page.getByRole('menu')).toHaveCount(0);
 	await page.getByRole('button', { name: 'Pause', exact: true }).click();
 	await page.getByRole('menuitem', { name: 'Finish', exact: true }).click();

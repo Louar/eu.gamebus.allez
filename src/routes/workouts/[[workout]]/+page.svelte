@@ -3,13 +3,14 @@
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as Card from '#lib/components/ui/card/index.js';
 	import Live from '#lib/Live.svelte';
+	import WorkoutSettings from '#lib/WorkoutSettings.svelte';
 	import { randomWorkout } from '#lib/minimal-workout.js';
 	import { updateLocked } from '#lib/offline.js';
 	import * as m from '#lib/paraglide/messages.js';
 	import { getLocale } from '#lib/paraglide/runtime.js';
 	import { name, reps } from '#lib/words.js';
 	import { decodeWorkout, encodeWorkout, type Workout } from '#lib/workout.js';
-	import { afterNavigate, goto } from '$app/navigation';
+	import { afterNavigate, goto, replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
@@ -18,9 +19,15 @@
 	let workout = $state.raw<Workout | null>(null);
 	let entered = $state(false),
 		invalid = $state(false);
-	let model = $derived(
-		page.url.searchParams.get('model') === 'movenet' ? ('movenet' as const) : ('mediapipe' as const)
-	);
+	let model = $state<'mediapipe' | 'movenet'>('mediapipe');
+	let cameraId = $state('');
+	function changeModel(value: 'mediapipe' | 'movenet') {
+		model = value;
+		const url = new URL(page.url.href);
+		url.searchParams.set('model', value);
+		// eslint-disable-next-line svelte/no-navigation-without-resolve -- Current URL already includes the app base path.
+		void replaceState(url, page.state);
+	}
 	let sound = $state(false);
 	let plannerQuery = $derived<`?${string}` | ''>(
 		workout
@@ -31,6 +38,7 @@
 	afterNavigate(({ type, from }) => {
 		document.documentElement.lang = getLocale();
 		sound = page.url.searchParams.get('sound') === '1';
+		model = page.url.searchParams.get('model') === 'movenet' ? 'movenet' : 'mediapipe';
 		const encoded = page.params.workout;
 		invalid = false;
 		entered = false;
@@ -62,6 +70,8 @@
 				immersive
 				{workout}
 				{model}
+				bind:cameraId
+				onmodelchange={changeModel}
 				bind:sound
 				onexit={() => void goto(resolve(`/${plannerQuery}`))}
 			/>
@@ -75,6 +85,17 @@
 				class="w-full max-w-xl [--card-spacing:clamp(1.5rem,5vw,3rem)] [--card:var(--studio-paper)]"
 			>
 				<Card.Header>
+					{#if workout}
+						<Card.Action>
+							<WorkoutSettings
+								compact
+								{model}
+								bind:cameraId
+								bind:sound
+								onmodelchange={changeModel}
+							/>
+						</Card.Action>
+					{/if}
 					<p class="font-mono text-xs font-bold tracking-[0.12em] text-studio-rust uppercase">
 						{m.brand()} / {m.private_session()}
 					</p>

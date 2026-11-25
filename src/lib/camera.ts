@@ -9,7 +9,8 @@ export function camera(
 	active: () => boolean,
 	epoch: () => number,
 	receive: (frame: PoseFrame, epoch: number) => void,
-	onerror: (kind: 'camera' | 'model') => void
+	onerror: (kind: 'camera' | 'model') => void,
+	deviceId = ''
 ) {
 	let closed = false,
 		raf = 0,
@@ -57,7 +58,11 @@ export function camera(
 	async function start() {
 		try {
 			stream = await navigator.mediaDevices.getUserMedia({
-				video: { facingMode: 'user', width: { ideal: 960 }, height: { ideal: 720 } },
+				video: {
+					...(deviceId ? { deviceId: { exact: deviceId } } : { facingMode: 'user' }),
+					width: { ideal: 960 },
+					height: { ideal: 720 }
+				},
 				audio: false
 			});
 			const track = stream.getVideoTracks()[0];

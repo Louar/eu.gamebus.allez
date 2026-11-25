@@ -22,12 +22,12 @@
 	import Skeleton from './Skeleton.svelte';
 	import Demo from './Demo.svelte';
 	import LocalizedSelect from './LocalizedSelect.svelte';
+	import WorkoutSettings from './WorkoutSettings.svelte';
 	import Play from '@lucide/svelte/icons/play';
 	import Pause from '@lucide/svelte/icons/pause';
 	import Scan from '@lucide/svelte/icons/scan-line';
 	import Volume2 from '@lucide/svelte/icons/volume-2';
 	import VolumeX from '@lucide/svelte/icons/volume-x';
-	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
 	import Square from '@lucide/svelte/icons/square';
 	import Repeat2 from '@lucide/svelte/icons/repeat-2';
 	import ListOrdered from '@lucide/svelte/icons/list-ordered';
@@ -37,12 +37,16 @@
 	let {
 		workout,
 		model,
+		cameraId = $bindable(''),
+		onmodelchange,
 		sound = $bindable(),
 		onexit,
 		immersive = false
 	}: {
 		workout: Workout;
 		model: 'mediapipe' | 'movenet';
+		cameraId?: string;
+		onmodelchange?: (model: 'mediapipe' | 'movenet') => void;
 		sound: boolean;
 		onexit: () => void;
 		immersive?: boolean;
@@ -288,7 +292,7 @@
 		source?.close();
 		stage = 'summary';
 	}
-	async function connect() {
+	async function connect(selectedModel = model, selectedCamera = cameraId) {
 		source?.close();
 		loaded = false;
 		error = '';
@@ -301,7 +305,7 @@
 		}
 		const active = camera(
 			video,
-			model,
+			selectedModel,
 			resolve('/'),
 			() => !document.hidden && !paused && (stage === 'practice' || stage === 'exercise'),
 			epoch,
@@ -311,7 +315,8 @@
 				error = k;
 				if (stage === 'exercise') session.interrupt(now());
 				image = null;
-			}
+			},
+			selectedCamera
 		);
 		source = active;
 		const ok = await active.start();
@@ -322,7 +327,9 @@
 	}
 	function attachCamera(node: HTMLVideoElement) {
 		video = node;
-		untrack(() => void connect());
+		const selectedModel = model,
+			selectedCamera = cameraId;
+		untrack(() => void connect(selectedModel, selectedCamera));
 		return () => source?.close();
 	}
 	onMount(() => {
@@ -396,7 +403,7 @@
 		<Alert.Root variant="destructive">
 			<Alert.Title>{error === 'camera' ? m.camera_error() : m.model_error()}</Alert.Title>
 			<Alert.Description>
-				<Button variant="outline" onclick={connect}>{m.retry()}</Button>
+				<Button variant="outline" onclick={() => void connect()}>{m.retry()}</Button>
 			</Alert.Description>
 		</Alert.Root>
 	{:else if !loaded}
@@ -495,63 +502,59 @@
 		<div class="hud">
 			<div class="pane command dark" data-testid="session-controls">
 				<div class="toolbar">
-					<Button
-						variant="ghost"
-						size="icon-lg"
-						aria-label={m.setup_sound()}
-						title={m.setup_sound()}
-						aria-pressed={sound}
-						onclick={() => (sound = !sound)}
-					>
-						{#if sound}<Volume2 />{:else}<VolumeX />{/if}
-					</Button>
-					<DropdownMenu.Root
-						bind:open={
-							() => pauseMenu,
-							(open) => {
-								if (open && !paused) {
-									toggle();
-									pauseMenu = false;
-								} else pauseMenu = open;
+					{#if onmodelchange}
+						<WorkoutSettings
+							compact
+							{model}
+							bind:cameraId
+							bind:sound
+							{onmodelchange}
+							onopenchange={pauseForDetails}
+						/>
+					{/if}
+					{#if stage !== 'practice'}<DropdownMenu.Root
+							bind:open={
+								() => pauseMenu,
+								(open) => {
+									if (open && !paused) {
+										toggle();
+										pauseMenu = false;
+									} else pauseMenu = open;
+								}
 							}
-						}
-					>
-						<DropdownMenu.Trigger>
-							{#snippet child({ props })}
-								<Button
-									{...props}
-									variant="ghost"
-									size="icon-lg"
-									aria-label={m.pause()}
-									aria-pressed={paused}
-									title={paused ? m.paused() : m.pause()}
-								>
-									{#if paused}<Play />{:else}<Pause />{/if}
-								</Button>
-							{/snippet}
-						</DropdownMenu.Trigger>
-						<DropdownMenu.Content class="session-menu" align="end" sideOffset={12}>
-							<DropdownMenu.Group aria-label={m.paused()}>
-								<DropdownMenu.Item onSelect={toggle}><Play />{m.resume()}</DropdownMenu.Item>
-								{#if stage === 'practice'}<DropdownMenu.Item onSelect={resetPractice}>
-										<RotateCcw />{m.restart_practice()}
-									</DropdownMenu.Item>{/if}
-								<DropdownMenu.Item onSelect={stage === 'practice' ? onexit : finish}>
-									<Square />{stage === 'practice' ? m.back_setup() : m.finish()}
-								</DropdownMenu.Item>
-							</DropdownMenu.Group>
-						</DropdownMenu.Content>
-					</DropdownMenu.Root>
+						>
+							<DropdownMenu.Trigger>
+								{#snippet child({ props })}
+									<Button
+										{...props}
+										variant="ghost"
+										size="icon-lg"
+										aria-label={m.pause()}
+										aria-pressed={paused}
+										title={paused ? m.paused() : m.pause()}
+									>
+										{#if paused}<Play />{:else}<Pause />{/if}
+									</Button>
+								{/snippet}
+							</DropdownMenu.Trigger>
+							<DropdownMenu.Content class="session-menu" align="end" sideOffset={12}>
+								<DropdownMenu.Group aria-label={m.paused()}>
+									<DropdownMenu.Item onSelect={toggle}><Play />{m.resume()}</DropdownMenu.Item>
+									<DropdownMenu.Item onSelect={finish}>
+										<Square />{m.finish()}
+									</DropdownMenu.Item>
+								</DropdownMenu.Group>
+							</DropdownMenu.Content>
+						</DropdownMenu.Root>{/if}
 					{#if stage === 'practice'}
-						<div class="practice-picker">{@render selector(true)}</div>
 						<Button
-							size="icon-lg"
+							size="lg"
 							disabled={!loaded}
 							aria-label={m.start_workout()}
 							title={m.start_workout()}
 							onclick={start}
 						>
-							<Play />
+							<Play data-icon="inline-start" />{m.start_workout()}
 						</Button>
 					{:else}
 						<Popover.Root onOpenChange={pauseForDetails}>
@@ -678,7 +681,7 @@
 					<Alert.Root variant="destructive">
 						<Alert.Title>{error === 'camera' ? m.camera_error() : m.model_error()}</Alert.Title>
 						<Alert.Description>
-							<Button variant="outline" onclick={connect}>{m.retry()}</Button>
+							<Button variant="outline" onclick={() => void connect()}>{m.retry()}</Button>
 						</Alert.Description>
 					</Alert.Root>
 				{:else if !loaded}<p role="status">{m.loading()}</p>{/if}
@@ -695,12 +698,12 @@
 				<header class="pane identity" data-testid="current-exercise">
 					<div class="exercise-name">
 						<small>{stage === 'practice' ? m.practice_title() : m.current_exercise()}</small>
-						<h1 tabindex="-1" {@attach focusTitle}>
-							{stage === 'countdown'
-								? m.ready()
-								: stage === 'rest'
-									? m.rest_title()
-									: name(activeId)}
+						<h1 class:practice-picker={stage === 'practice'} tabindex="-1" {@attach focusTitle}>
+							{#if stage === 'practice'}{@render selector(true)}{:else}{stage === 'countdown'
+									? m.ready()
+									: stage === 'rest'
+										? m.rest_title()
+										: name(activeId)}{/if}
 						</h1>
 					</div>
 					{#if stage === 'practice' || stage === 'exercise'}<Demo exercise={activeId} docked />
@@ -939,12 +942,17 @@
 		font-size: clamp(1.1rem, 1.8vw, 1.75rem);
 	}
 	.command {
+		--command-radius: 1rem;
+		--command-padding: 0.25rem;
+		--primary: var(--color-studio-orange);
+		--primary-foreground: var(--ink);
 		color-scheme: dark;
 		background: var(--ink);
 		color: var(--foreground);
 		width: fit-content;
 		max-width: 100%;
-		padding: 0.25rem;
+		border-radius: var(--command-radius);
+		padding: var(--command-padding);
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
@@ -956,6 +964,7 @@
 		gap: 0.25rem;
 	}
 	.toolbar :global(button) {
+		border-radius: calc(var(--command-radius) - var(--command-padding));
 		min-height: 2.75rem;
 		flex-shrink: 0;
 	}
@@ -1006,9 +1015,20 @@
 		width: 1.25rem;
 		height: 1.25rem;
 	}
-	.practice-picker {
+	.practice-picker :global([data-slot='select-trigger']) {
+		height: auto;
+		padding: 0.15em 0.2em;
+		font: inherit;
+		letter-spacing: inherit;
+		color: inherit;
+		border-color: #ffffff40;
+	}
+	.practice-picker :global([data-slot='select-value']) {
 		min-width: 0;
-		width: clamp(8rem, 30vw, 14rem);
+	}
+	.practice-picker :global(svg) {
+		width: 0.4em;
+		height: 0.4em;
 	}
 	.round-adjuster {
 		display: flex;
@@ -1121,9 +1141,6 @@
 		}
 		.telemetry .digits {
 			font-size: clamp(2rem, 7.8vw, 3.5rem);
-		}
-		.command {
-			padding: 0.25rem;
 		}
 		.toolbar {
 			gap: 0;
