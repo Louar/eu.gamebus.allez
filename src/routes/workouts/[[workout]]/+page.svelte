@@ -3,6 +3,8 @@
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import { Button } from '#lib/components/ui/button/index.js';
+	import * as Card from '#lib/components/ui/card/index.js';
+	import * as Alert from '#lib/components/ui/alert/index.js';
 	import * as m from '#lib/paraglide/messages.js';
 	import { getLocale } from '#lib/paraglide/runtime.js';
 	import { decodeWorkout, encodeWorkout, type Workout } from '#lib/workout.js';
@@ -53,7 +55,7 @@
 	<title>{m.live()} · {m.brand()}</title><meta name="theme-color" content="#172026" />
 </svelte:head>
 
-<main>
+<main class="min-h-svh">
 	{#if workout && entered}
 		{#key workout}
 			<Live
@@ -65,117 +67,70 @@
 			/>
 		{/key}
 	{:else if workout || invalid}
-		<section class="entry" data-testid="workout-preview">
-			<div class="sheet">
-				<p class="eyebrow">{m.brand()} / {m.private_session()}</p>
-				{#if workout}
-					<h1>{m.setup_circuit()}</h1>
-					<p class="intro">{m.camera_entry()}</p>
-					<ol>
-						{#each workout.steps as step, i (i)}
-							<li>
-								<span class="index" aria-hidden="true">
-									{String(i + 1).padStart(2, '0')}
-								</span><strong>
-									{'exercise' in step ? name(step.exercise) : m.rest_title()}
-								</strong><span>
-									{'reps' in step
-										? reps(step.reps)
-										: 'hold' in step
-											? `${m.setup_hold()} · ${m.setup_s({ n: step.hold })}`
-											: m.setup_s({ n: 'rest' in step ? step.rest : step.duration })}
-								</span>
-							</li>
-						{/each}
-					</ol>
-					<p class="meta">
-						{workout.repeat && 'duration' in workout.repeat
-							? `${m.setup_time()}: ${m.setup_s({ n: workout.repeat.duration })}`
-							: `${m.setup_rounds()}: ${workout.repeat?.rounds ?? 1}`} · {m.setup_auto_short()}: {m.setup_s(
-							{ n: workout.rest ?? 0 }
-						)}
+		<section
+			class="grid min-h-svh place-items-center bg-studio-ink bg-[radial-gradient(#ffffff16_1px,transparent_1px)] bg-size-[18px_18px] p-[clamp(1rem,5vw,3rem)]"
+			data-testid="workout-preview"
+		>
+			<Card.Root
+				class="w-full max-w-xl [--card-spacing:clamp(1.5rem,5vw,3rem)] [--card:var(--studio-paper)]"
+			>
+				<Card.Header>
+					<p class="font-mono text-xs font-bold tracking-[0.12em] text-studio-rust uppercase">
+						{m.brand()} / {m.private_session()}
 					</p>
-				{:else}
-					<h1>{m.live()}</h1>
-					<p class="intro" role="alert">{m.invalid_link()}</p>
-				{/if}
-				<div class="entry-actions">
+					<Card.Title>
+						<h1
+							class="text-[clamp(2.5rem,6vw,3.6rem)] leading-[1.05] font-[750] tracking-[-0.055em]"
+						>
+							{workout ? m.setup_circuit() : m.live()}
+						</h1>
+					</Card.Title>
+					{#if workout}<Card.Description>{m.camera_entry()}</Card.Description>{/if}
+				</Card.Header>
+				<Card.Content>
+					{#if workout}
+						<ol class="mb-3">
+							{#each workout.steps as step, i (i)}
+								<li class="flex flex-wrap items-baseline gap-3 border-b py-2.5">
+									<span
+										class="font-mono text-xs font-bold tracking-[0.12em] text-studio-rust"
+										aria-hidden="true"
+									>
+										{String(i + 1).padStart(2, '0')}
+									</span><strong>
+										{'exercise' in step ? name(step.exercise) : m.rest_title()}
+									</strong><span class="ml-auto text-sm text-muted-foreground">
+										{'reps' in step
+											? reps(step.reps)
+											: 'hold' in step
+												? `${m.setup_hold()} · ${m.setup_s({ n: step.hold })}`
+												: m.setup_s({ n: 'rest' in step ? step.rest : step.duration })}
+									</span>
+								</li>
+							{/each}
+						</ol>
+						<p class="text-xs text-muted-foreground">
+							{workout.repeat && 'duration' in workout.repeat
+								? `${m.setup_time()}: ${m.setup_s({ n: workout.repeat.duration })}`
+								: `${m.setup_rounds()}: ${workout.repeat?.rounds ?? 1}`} · {m.setup_auto_short()}: {m.setup_s(
+								{ n: workout.rest ?? 0 }
+							)}
+						</p>
+					{:else}
+						<Alert.Root variant="destructive">
+							<Alert.Description>{m.invalid_link()}</Alert.Description>
+						</Alert.Root>
+					{/if}
+				</Card.Content>
+				<Card.Footer class="flex-wrap gap-3">
 					{#if workout}<Button size="lg" disabled={$updateLocked} onclick={() => (entered = true)}>
 							<Camera data-icon="inline-start" />{m.camera_enable()}
 						</Button>{/if}
 					<Button variant="outline" href={resolve(`/${plannerQuery}`)}>
 						<ArrowLeft data-icon="inline-start" />{m.back_setup()}
 					</Button>
-				</div>
-			</div>
+				</Card.Footer>
+			</Card.Root>
 		</section>
 	{/if}
 </main>
-
-<style>
-	main {
-		min-height: 100svh;
-	}
-	.entry {
-		min-height: 100svh;
-		background: #172026;
-		display: grid;
-		place-items: center;
-		padding: clamp(1rem, 5vw, 3rem);
-		background-image: radial-gradient(#ffffff16 1px, transparent 1px);
-		background-size: 18px 18px;
-	}
-	.sheet {
-		width: min(100%, 36rem);
-		padding: clamp(1.5rem, 5vw, 3rem);
-		border-radius: 1rem;
-		background: var(--studio-paper);
-		border-top: 5px solid #f3713c;
-	}
-	.eyebrow,
-	.index {
-		font:
-			700 0.7rem/1.5 ui-monospace,
-			monospace;
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-		color: #89401e;
-	}
-	h1 {
-		font-weight: 750;
-		letter-spacing: -0.055em;
-		font-size: clamp(2.5rem, 6vw, 3.6rem);
-		line-height: 1.05;
-		margin: 0.6rem 0 1rem;
-	}
-	.intro,
-	.meta {
-		color: #555c59;
-	}
-	.meta {
-		font-size: 0.8rem;
-	}
-	ol {
-		margin: 1.5rem 0 0.7rem;
-	}
-	li {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: baseline;
-		gap: 0.75rem;
-		border-bottom: 1px solid #d6d9d0;
-		padding: 0.65rem 0;
-	}
-	li span:last-child {
-		margin-left: auto;
-		color: #4c5553;
-		font-size: 0.84rem;
-	}
-	.entry-actions {
-		display: flex;
-		align-items: center;
-		flex-wrap: wrap;
-		gap: 0.75rem;
-		margin-top: 1.5rem;
-	}
-</style>

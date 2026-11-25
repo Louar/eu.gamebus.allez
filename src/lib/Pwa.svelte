@@ -4,6 +4,7 @@
 	import { get } from 'svelte/store';
 	import { workoutBusy, updateLocked, registerPwa } from './offline';
 	import { Button } from '#lib/components/ui/button/index.js';
+	import * as Alert from '#lib/components/ui/alert/index.js';
 	import * as m from '#lib/paraglide/messages.js';
 	let waiting = $state(false);
 	let registration: ServiceWorkerRegistration | undefined;
@@ -102,12 +103,18 @@
 </script>
 
 {#if (waiting || reloadNeeded) && !$workoutBusy}
-	<div
-		class="fixed inset-x-0 bottom-0 z-50 flex flex-wrap items-center justify-center gap-3 border-t bg-background p-3"
-		role="status"
-		data-testid="pwa-update"
-	>
-		<p>{blocked ? m.offline_update_busy() : m.offline_update()}</p>
-		<Button variant="outline" disabled={applying} onclick={apply}>{m.offline_apply()}</Button>
+	<div class="fixed inset-x-0 bottom-0 z-50 p-3">
+		<Alert.Root
+			role="status"
+			data-testid="pwa-update"
+			class="mx-auto flex max-w-2xl flex-wrap items-center justify-center gap-3 has-data-[slot=alert-action]:pr-4"
+		>
+			<Alert.Description>
+				{blocked ? m.offline_update_busy() : m.offline_update()}
+			</Alert.Description>
+			<Alert.Action class="static">
+				<Button variant="outline" disabled={applying} onclick={apply}>{m.offline_apply()}</Button>
+			</Alert.Action>
+		</Alert.Root>
 	</div>
 {/if}

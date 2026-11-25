@@ -432,7 +432,7 @@ When(
 	async ({ page }, language: string) => {
 		const state = visitor(page);
 		if (language === 'nl')
-			await state.page.getByRole('button', { name: 'Nederlands', exact: true }).click();
+			await state.page.getByRole('radio', { name: 'Nederlands', exact: true }).click();
 		await expect(state.page.locator('html')).toHaveAttribute('lang', language);
 		await state.context.setOffline(true);
 		await state.page.reload();
@@ -465,7 +465,7 @@ Then(
 When('I select an uncached provider offline in {string}', async ({ page }, language: string) => {
 	const state = visitor(page);
 	if (language === 'nl')
-		await state.page.getByRole('button', { name: 'Nederlands', exact: true }).click();
+		await state.page.getByRole('radio', { name: 'Nederlands', exact: true }).click();
 	await expect(state.page.locator('html')).toHaveAttribute('lang', language);
 	await state.context.setOffline(true);
 	await state.page.getByRole('combobox', { name: 'Model', exact: true }).click();
@@ -579,7 +579,7 @@ Then('the workout finishes with its original repetition count and timer', async 
 		).__alez.advance(20)
 	);
 	await expect(state.page.getByTestId('stage')).toHaveAttribute('data-stage', 'summary');
-	await expect(state.page.getByTestId('result').locator('b')).toHaveText(/\b1\b/);
+	await expect(state.page.getByTestId('result').locator('strong')).toHaveText(/\b1\b/);
 	await expect(state.page.getByTestId('result')).toContainText('Interval: 10 / 10 s');
 	await expect(state.page.getByTestId('pwa-update')).toHaveCount(0);
 	expect(

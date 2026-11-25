@@ -3,6 +3,9 @@
 	import { resolve } from '$app/paths';
 	import * as m from '#lib/paraglide/messages.js';
 	import { Button } from '#lib/components/ui/button/index.js';
+	import * as Card from '#lib/components/ui/card/index.js';
+	import * as Alert from '#lib/components/ui/alert/index.js';
+	import { Toggle } from '#lib/components/ui/toggle/index.js';
 	import { Session, type Workout } from './workout';
 	import {
 		Tracker,
@@ -348,15 +351,22 @@
 {/snippet}
 
 {#snippet controls()}
-	{#if error}<p role="alert">{error === 'camera' ? m.camera_error() : m.model_error()}</p>
-		<Button variant="outline" onclick={connect}>{m.retry()}</Button>
-	{:else if !loaded}<p role="status">{m.loading()}</p>{/if}
-	<div class="actions">
-		<Button variant="outline" aria-pressed={sound} onclick={() => (sound = !sound)}>
+	{#if error}
+		<Alert.Root variant="destructive">
+			<Alert.Title>{error === 'camera' ? m.camera_error() : m.model_error()}</Alert.Title>
+			<Alert.Description>
+				<Button variant="outline" onclick={connect}>{m.retry()}</Button>
+			</Alert.Description>
+		</Alert.Root>
+	{:else if !loaded}
+		<Alert.Root role="status"><Alert.Title>{m.loading()}</Alert.Title></Alert.Root>
+	{/if}
+	<div class="actions mt-auto flex flex-wrap gap-[0.55rem] pt-4 max-[730px]:mt-0">
+		<Toggle variant="outline" bind:pressed={sound}>
 			{#if sound}<Volume2 data-icon="inline-start" />{:else}<VolumeX
 					data-icon="inline-start"
 				/>{/if}{m.setup_sound()}
-		</Button>
+		</Toggle>
 		{#if stage === 'practice'}<Button size="lg" disabled={!loaded} onclick={start}>
 				<Play data-icon="inline-start" />{m.start_workout()}
 			</Button><Button variant="outline" onclick={resetPractice}>
@@ -374,52 +384,76 @@
 	data-testid="stage"
 	data-stage={stage}
 	data-immersive={immersive || undefined}
+	class="pt-8 pb-12"
 	class:immersive
 >
 	{#if stage === 'summary'}
-		<div class="eyebrow"><i></i>{m.private_session()}</div>
+		<div class="eyebrow flex items-center gap-2"><i></i>{m.private_session()}</div>
 		<h1 tabindex="-1" {@attach focusTitle}>{m.summary()}</h1>
 		<p>{m.summary_note()}</p>
-		<div class="stats">
-			<div><span>{m.completed_rounds()}</span><strong>{session.completedRounds}</strong></div>
-			<div><span>{m.active_time()}</span><strong>{clock(session.elapsed)}</strong></div>
+		<div class="my-6 grid grid-cols-1 gap-4 min-[400px]:grid-cols-2">
+			<Card.Root>
+				<Card.Header><Card.Title>{m.completed_rounds()}</Card.Title></Card.Header>
+				<Card.Content>
+					<strong class="text-4xl tabular-nums">{session.completedRounds}</strong>
+				</Card.Content>
+			</Card.Root>
+			<Card.Root>
+				<Card.Header><Card.Title>{m.active_time()}</Card.Title></Card.Header>
+				<Card.Content>
+					<strong class="text-4xl tabular-nums">{clock(session.elapsed)}</strong>
+				</Card.Content>
+			</Card.Root>
 		</div>
 		<p>{m.round_progress({ round: session.round, step: session.stepIndex + 1 })}</p>
-		<div class="results">
+		<div class="my-4 grid grid-cols-[repeat(auto-fit,minmax(min(100%,15rem),1fr))] gap-4">
 			{#each session.results as r (`${r.round}-${r.stepIndex}`)}
 				{@const target = workout.steps[r.stepIndex]}
-				<article data-testid="result">
-					<small>
-						{m.position({ round: r.round, step: r.stepIndex + 1, total: workout.steps.length })}
-					</small>
-					<h2>{name(r.exercise)}</h2>
-					<b>
-						{'reps' in target
-							? m.rep_target({ now: r.reps, target: target.reps })
-							: 'hold' in target
-								? m.hold_target({ now: Math.floor(r.longest), target: target.hold })
-								: staticExercise(r.exercise)
-									? m.held_s({ n: Math.floor(r.held) })
-									: reps(r.reps)}
-					</b>
-					<p>
-						{r.partial ? m.partial() : m.complete()}{#if 'duration' in target}
-							· {m.duration_result({ actual: Math.floor(r.elapsed), target: target.duration })}{/if}
-					</p>
-					{#if staticExercise(r.exercise)}<p>
-							{m.held_s({ n: r.held.toFixed(1) })} · {m.longest({ n: r.longest.toFixed(1) })}
-						</p>{/if}
-					<p>{m.time_lost({ n: r.lost.toFixed(1) })}</p>
-				</article>
+				<Card.Root role="article" data-testid="result">
+					<Card.Header>
+						<Card.Description>
+							{m.position({ round: r.round, step: r.stepIndex + 1, total: workout.steps.length })}
+						</Card.Description>
+						<Card.Title role="heading" aria-level={2}>{name(r.exercise)}</Card.Title>
+					</Card.Header>
+					<Card.Content class="flex flex-col gap-2">
+						<strong class="text-[1.75rem] tabular-nums">
+							{'reps' in target
+								? m.rep_target({ now: r.reps, target: target.reps })
+								: 'hold' in target
+									? m.hold_target({ now: Math.floor(r.longest), target: target.hold })
+									: staticExercise(r.exercise)
+										? m.held_s({ n: Math.floor(r.held) })
+										: reps(r.reps)}
+						</strong>
+						<p>
+							{r.partial ? m.partial() : m.complete()}{#if 'duration' in target}
+								· {m.duration_result({
+									actual: Math.floor(r.elapsed),
+									target: target.duration
+								})}{/if}
+						</p>
+						{#if staticExercise(r.exercise)}<p>
+								{m.held_s({ n: r.held.toFixed(1) })} · {m.longest({ n: r.longest.toFixed(1) })}
+							</p>{/if}
+					</Card.Content>
+					<Card.Footer><p>{m.time_lost({ n: r.lost.toFixed(1) })}</p></Card.Footer>
+				</Card.Root>
 			{/each}
 		</div>
 		<Button onclick={onexit}>{m.back_setup()}</Button>
 	{:else if immersive}
-		<div class="backdrop screen">{@render preview()}</div>
-		<div class="hud">
-			<div class="topline">
-				<header class="pane identity">
-					<div class="eyebrow"><i></i>{stage === 'practice' ? m.practice_title() : m.live()}</div>
+		<div
+			class="backdrop screen relative isolate min-h-88 overflow-hidden rounded-2xl max-[730px]:aspect-4/3 max-[730px]:min-h-0"
+		>
+			{@render preview()}
+		</div>
+		<div class="hud relative flex min-h-full flex-col justify-between">
+			<div class="flex items-start justify-between gap-[0.65rem]">
+				<header class="pane identity max-w-[27rem]">
+					<div class="eyebrow flex items-center gap-2">
+						<i></i>{stage === 'practice' ? m.practice_title() : m.live()}
+					</div>
 					<h1 tabindex="-1" {@attach focusTitle}>
 						{stage === 'countdown' ? m.ready() : stage === 'rest' ? m.rest_title() : name(activeId)}
 					</h1>
@@ -434,8 +468,8 @@
 						docked
 					/>{/if}
 			</div>
-			<div class="deck">
-				<div class="pane telemetry">
+			<div class="deck flex items-end justify-between gap-[0.65rem]">
+				<div class="pane telemetry flex flex-col gap-[0.4rem]">
 					<small>
 						{stage === 'countdown'
 							? m.ready()
@@ -463,7 +497,7 @@
 							{m.active_time()} · {elapsed}
 						</small>{/if}
 				</div>
-				<div class="pane command dark">
+				<div class="pane command dark flex max-w-[28rem] flex-col gap-[0.4rem]">
 					{#if paused}<strong role="status">
 							{m.paused()}
 						</strong>{:else if stage === 'rest' && next}<strong data-testid="next">
@@ -478,7 +512,9 @@
 			</div>
 		</div>
 	{:else}
-		<div class="eyebrow"><i></i>{stage === 'practice' ? m.practice_title() : m.live()}</div>
+		<div class="eyebrow flex items-center gap-2">
+			<i></i>{stage === 'practice' ? m.practice_title() : m.live()}
+		</div>
 		<h1>
 			{stage === 'practice'
 				? m.practice_title()
@@ -491,12 +527,18 @@
 		{#if stage === 'practice'}<p>{m.practice_intro()}</p>{:else}<p data-testid="position">
 				{position}
 			</p>{/if}
-		<div class="live-grid">
-			<div class="screen">
+		<div
+			class="mt-[1.6rem] grid grid-cols-1 gap-5 min-[731px]:grid-cols-[minmax(0,1.6fr)_minmax(17rem,1fr)]"
+		>
+			<div
+				class="screen relative isolate min-h-88 overflow-hidden rounded-2xl max-[730px]:aspect-4/3 max-[730px]:min-h-0"
+			>
 				{@render preview()}
 				{#if stage === 'practice' || stage === 'exercise'}<Demo exercise={activeId} />{/if}
 			</div>
-			<aside>
+			<aside
+				class="flex flex-col items-start gap-3 rounded-2xl border border-border bg-card p-[clamp(1.25rem,3vw,2rem)]"
+			>
 				{#if stage === 'practice'}{@render selector()}{/if}
 				{#if circuit !== null}<small data-testid="circuit-clock">
 						{m.circuit_left({ time: clock(circuit) })}
@@ -526,21 +568,14 @@
 </section>
 
 <style>
-	section {
-		padding: 2rem 0 3rem;
-	}
 	.eyebrow,
-	small,
-	.stats span {
+	small {
 		font-size: 0.72rem;
 		font-weight: 750;
 		letter-spacing: 0.09em;
 		text-transform: uppercase;
 	}
 	.eyebrow {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
 		color: #9d3c1c;
 	}
 	.eyebrow i {
@@ -559,19 +594,8 @@
 		color: #565b60;
 		line-height: 1.5;
 	}
-	.live-grid {
-		display: grid;
-		grid-template-columns: minmax(0, 1.6fr) minmax(17rem, 1fr);
-		gap: 1.25rem;
-		margin-top: 1.6rem;
-	}
 	.screen {
-		position: relative;
-		min-height: 22rem;
 		background: #182026;
-		overflow: hidden;
-		border-radius: 1rem;
-		isolation: isolate;
 	}
 	video,
 	.overlay {
@@ -589,20 +613,6 @@
 		color: #718087;
 		left: calc(50% - 1.6rem);
 		top: calc(50% - 1.6rem);
-	}
-	aside,
-	article,
-	.stats {
-		padding: clamp(1.25rem, 3vw, 2rem);
-		border: 1px solid #deded6;
-		background: white;
-		border-radius: 1rem;
-	}
-	aside {
-		display: flex;
-		align-items: flex-start;
-		flex-direction: column;
-		gap: 0.75rem;
 	}
 	.digits {
 		font-weight: 720;
@@ -625,53 +635,6 @@
 	}
 	aside .lost {
 		color: #a33b22;
-	}
-	.actions {
-		display: flex;
-		gap: 0.55rem;
-		flex-wrap: wrap;
-		margin-top: auto;
-		padding-top: 1rem;
-	}
-	.stats {
-		display: flex;
-		gap: 3rem;
-		margin: 1.5rem 0;
-	}
-	.stats span,
-	.stats strong {
-		display: block;
-	}
-	.stats strong {
-		font-size: 2.2rem;
-	}
-	.results {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
-		gap: 1rem;
-		margin: 1rem 0;
-	}
-	article h2 {
-		font-size: 1.35rem;
-		font-weight: 700;
-	}
-	article b {
-		font-size: 1.75rem;
-	}
-	article small {
-		color: #986143;
-	}
-	@media (max-width: 730px) {
-		.live-grid {
-			grid-template-columns: 1fr;
-		}
-		.screen {
-			min-height: 0;
-			aspect-ratio: 4/3;
-		}
-		.actions {
-			margin-top: 0;
-		}
 	}
 	@media (prefers-reduced-motion: reduce) {
 		.pulse {
@@ -705,22 +668,10 @@
 		--gutter: clamp(0.7rem, 2.2vw, 2rem);
 		--ink: #172026;
 		--signal: #ffc789;
-		position: relative;
-		display: flex;
-		flex-direction: column;
-		justify-content: space-between;
 		gap: clamp(2rem, 12dvh, 9rem);
-		min-height: 100%;
 		padding: max(var(--gutter), env(safe-area-inset-top))
 			max(var(--gutter), env(safe-area-inset-right)) max(var(--gutter), env(safe-area-inset-bottom))
 			max(var(--gutter), env(safe-area-inset-left));
-	}
-	.topline,
-	.deck {
-		display: flex;
-		justify-content: space-between;
-		align-items: flex-start;
-		gap: 0.65rem;
 	}
 	.pane {
 		min-width: 0;
@@ -731,10 +682,6 @@
 	.telemetry {
 		background: var(--ink);
 		color: white;
-		box-shadow: inset 3px 0 var(--signal);
-	}
-	.identity {
-		max-width: 27rem;
 	}
 	.hud h1 {
 		font-size: clamp(1.4rem, 4vw, 3.4rem);
@@ -752,15 +699,6 @@
 	.identity p {
 		color: inherit;
 	}
-	.deck {
-		align-items: flex-end;
-	}
-	.telemetry,
-	.command {
-		display: flex;
-		flex-direction: column;
-		gap: 0.4rem;
-	}
 	.telemetry .digits {
 		font-size: clamp(2.25rem, min(8vw, 12dvh), 7.25rem);
 	}
@@ -769,7 +707,6 @@
 		background: var(--ink);
 		border: 1px solid #647079;
 		color: var(--foreground);
-		max-width: 28rem;
 	}
 	.hud p {
 		font-size: 0.88rem;
@@ -783,10 +720,6 @@
 		padding: 0.2rem 0 0;
 		gap: 0.35rem;
 		align-items: center;
-	}
-	.hud .command [role='alert'] {
-		font-weight: 650;
-		color: #ffc1ac;
 	}
 	.immersive :global(:focus-visible) {
 		outline: 3px solid #1979d3;

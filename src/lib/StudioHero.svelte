@@ -2,14 +2,35 @@
 	import * as m from '#lib/paraglide/messages.js';
 </script>
 
-<header class="hero">
-	<div class="copy">
-		<div class="label"><i></i>{m.setup_kicker()}</div>
-		<h1>{m.setup_title()}<span aria-hidden="true">.</span></h1>
-		<p>{m.setup_intro()}</p>
+<header
+	class="hero isolate grid overflow-hidden rounded-2xl bg-background text-foreground min-[661px]:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]"
+>
+	<div
+		class="relative z-1 self-center px-6 pt-6 min-[661px]:py-[clamp(26px,4vw,54px)] min-[661px]:pr-0 min-[661px]:pl-[clamp(24px,4vw,52px)]"
+	>
+		<div
+			class="flex items-center gap-2.5 font-mono text-[10px] leading-[1.4] font-semibold tracking-[0.14em] text-(--hero-kicker) uppercase"
+		>
+			<i
+				class="h-2 w-[22px] bg-[repeating-linear-gradient(117deg,#ff9954_0_4px,transparent_4px_7px)]"
+			></i>{m.setup_kicker()}
+		</div>
+		<h1
+			class="mt-3.5 mb-3 text-[clamp(2.7rem,9vw,3.7rem)] leading-[1.02] font-[750] tracking-[-0.065em] min-[661px]:text-[clamp(3rem,5.5vw,4.65rem)]"
+		>
+			{m.setup_title()}<span class="text-primary" aria-hidden="true">.</span>
+		</h1>
+		<p
+			class="m-0 max-w-[42ch] text-[clamp(0.875rem,1.5vw,1rem)] leading-[1.55] text-muted-foreground"
+		>
+			{m.setup_intro()}
+		</p>
 	</div>
-	<figure>
+	<figure
+		class="relative m-0 ml-auto min-h-[155px] w-full max-w-[400px] min-[661px]:min-h-[216px] min-[661px]:max-w-none"
+	>
 		<svg
+			class="absolute size-full object-contain"
 			viewBox="0 0 480 250"
 			preserveAspectRatio="xMidYMid slice"
 			aria-hidden="true"
@@ -69,93 +90,10 @@
 
 <style>
 	.hero {
-		background: #1c2126;
-		color: #fff8ec;
-		display: grid;
-		grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
-		border-radius: 16px;
-		overflow: hidden;
-		isolation: isolate;
-	}
-	.copy {
-		align-self: center;
-		padding: clamp(26px, 4vw, 54px) 0 clamp(26px, 4vw, 54px) clamp(24px, 4vw, 52px);
-		position: relative;
-		z-index: 1;
-	}
-	.label,
-	figcaption {
-		font:
-			650 10px/1.4 ui-monospace,
-			monospace;
-		letter-spacing: 0.14em;
-		text-transform: uppercase;
-	}
-	.label {
-		display: flex;
-		align-items: center;
-		gap: 10px;
-		color: #ffc18c;
-	}
-	.label i {
-		height: 8px;
-		width: 22px;
-		background: repeating-linear-gradient(117deg, #ff9954 0 4px, transparent 4px 7px);
-	}
-	h1 {
-		font-size: clamp(3rem, 5.5vw, 4.65rem);
-		letter-spacing: -0.065em;
-		line-height: 1.02;
-		font-weight: 750;
-		margin: 14px 0 12px;
-	}
-	h1 span {
-		color: #ff954c;
-	}
-	p {
-		font-size: clamp(0.875rem, 1.5vw, 1rem);
-		line-height: 1.55;
-		color: #ced1d1;
-		max-width: 42ch;
-		margin: 0;
-	}
-	figure {
-		margin: 0;
-		min-height: 216px;
-		position: relative;
-	}
-	svg {
-		position: absolute;
-		width: 100%;
-		height: 100%;
-	}
-	figcaption {
-		position: absolute;
-		right: 18px;
-		bottom: 12px;
-		color: #f5bd87;
-		font-size: 9px;
-	}
-	@media (max-width: 660px) {
-		.hero {
-			grid-template-columns: 1fr;
-		}
-		.copy {
-			padding: 24px 24px 0;
-		}
-		h1 {
-			font-size: clamp(2.7rem, 9vw, 3.7rem);
-		}
-		figure {
-			min-height: 155px;
-			margin: 0 0 0 auto;
-			width: min(100%, 400px);
-		}
-		svg {
-			object-fit: contain;
-		}
-		figcaption {
-			bottom: 7px;
-		}
+		--background: #1c2126;
+		--foreground: #fff8ec;
+		--primary: #ff954c;
+		--muted-foreground: #ced1d1;
+		--hero-kicker: #ffc18c;
 	}
 </style>

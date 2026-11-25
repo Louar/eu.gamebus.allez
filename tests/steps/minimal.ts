@@ -143,7 +143,7 @@ Then('I can toggle workout sound without interrupting the exercise', async ({ pa
 	await sound.click();
 	await page.getByRole('button', { name: 'Finish', exact: true }).click();
 	await page.getByRole('button', { name: 'Back to setup', exact: true }).click();
-	await expect(page.getByRole('checkbox', { name: 'Sound cues' })).toBeChecked();
+	await expect(page.getByRole('switch', { name: 'Sound cues' })).toBeChecked();
 });
 
 Then('a missing static asset returns the Pages 404 document', async ({ request }) => {

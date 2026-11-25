@@ -7,6 +7,13 @@
 	import Offline from './Offline.svelte';
 	import { updateLocked } from './offline';
 	import { Button } from '#lib/components/ui/button/index.js';
+	import * as Card from '#lib/components/ui/card/index.js';
+	import * as Field from '#lib/components/ui/field/index.js';
+	import * as Alert from '#lib/components/ui/alert/index.js';
+	import { Input } from '#lib/components/ui/input/index.js';
+	import { Switch } from '#lib/components/ui/switch/index.js';
+	import { Badge } from '#lib/components/ui/badge/index.js';
+	import { cn } from '#lib/utils.js';
 	import {
 		ArrowUpRight,
 		Check,
@@ -66,6 +73,7 @@
 		copied = $state(false),
 		manual = $state('');
 	let form: HTMLFormElement;
+	const id = $props.id();
 	const isStatic = (id: ExerciseId) => id === 'plank' || id === 'squat-hold';
 	const kindName = (kind: Kind) =>
 		kind === 'rest'
@@ -149,7 +157,7 @@
 		focusRow(row.key);
 	}
 	function focusRow(key: number) {
-		form.querySelector<HTMLElement>(`[data-row="${key}"] :is(select,input)`)?.focus();
+		form.querySelector<HTMLElement>(`[data-row="${key}"] :is([role="combobox"],input)`)?.focus();
 	}
 	async function remove(i: number) {
 		rows.splice(i, 1);
@@ -177,502 +185,290 @@
 	{@attach (element: HTMLFormElement) => {
 		form = element;
 	}}
-	class="dashboard"
+	class="dashboard grid items-start gap-5 min-[741px]:grid-cols-[minmax(0,1.7fr)_minmax(270px,1fr)]"
 	oninput={(e) => {
 		if (e.target instanceof HTMLInputElement) e.target.setCustomValidity('');
 		clear();
 	}}
 	onsubmit={(e) => e.preventDefault()}
 >
-	<section class="panel circuit" aria-labelledby="circuit-title">
-		<header class="panel-head">
+	<Card.Root class="min-w-0" role="region" aria-labelledby={`${id}-circuit-title`}>
+		<Card.Header>
 			<div>
-				<p class="eyebrow"><i></i>{m.setup_program()}</p>
-				<h2 id="circuit-title">{m.setup_circuit()}</h2>
+				<Card.Description>{m.setup_program()}</Card.Description>
+				<Card.Title><h2 id={`${id}-circuit-title`}>{m.setup_circuit()}</h2></Card.Title>
 			</div>
-			<Button
-				variant="outline"
-				size="sm"
-				aria-expanded={edit}
-				onclick={() => {
-					if (!edit || validated()) edit = !edit;
-				}}
-			>
-				{#if edit}<Check data-icon="inline-start" />{m.setup_done()}{:else}<Pencil
-						data-icon="inline-start"
-					/>{m.setup_edit()}{/if}
-			</Button>
-		</header>
-		{#if edit}
-			<div class="configuration">
-				<label>
-					{m.setup_repeat()}<LocalizedSelect
-						label={m.setup_repeat()}
-						value={mode}
-						onchange={(v: 'rounds' | 'duration') => (mode = v)}
-						options={[
-							{ value: 'rounds', label: m.setup_rounds() },
-							{ value: 'duration', label: m.setup_time() }
-						] as const}
-					/>
-				</label>
-				{#if mode === 'rounds'}<label>
-						{m.setup_rounds()}<input type="number" min="1" required bind:value={rounds} />
-					</label>{:else}<label>
-						{m.setup_budget()}<input type="number" min="1" required bind:value={budget} />
-					</label>{/if}
-				<label>{m.setup_auto()}<input type="number" min="0" required bind:value={rest} /></label>
-			</div>
-		{:else}
-			<dl class="metrics">
-				<div>
-					<dt>{m.setup_steps()}</dt>
-					<dd>{String(rows.length).padStart(2, '0')}</dd>
-				</div>
-				<div>
-					<dt>{mode === 'duration' ? m.setup_time() : m.setup_rounds()}</dt>
-					<dd>
-						{mode === 'duration' ? m.setup_s({ n: budget ?? 0 }) : String(rounds).padStart(2, '0')}
-					</dd>
-				</div>
-				<div>
-					<dt>{m.setup_auto_short()}</dt>
-					<dd>{m.setup_s({ n: rest ?? 0 })}</dd>
-				</div>
-			</dl>
-		{/if}
-		<ol aria-labelledby="circuit-title">
-			{#each rows as row, i (row.key)}
-				<li class:break-row={row.kind === 'rest'} class:editing={edit} data-row={row.key}>
-					<span class="number" aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
-					{#if edit}
-						<div class="row-fields">
-							{#if row.kind === 'rest'}<strong>{m.setup_rest()}</strong>{:else}
-								<LocalizedSelect
-									label={m.setup_exercise_label({ n: i + 1 })}
-									value={row.exercise}
-									onchange={(v: ExerciseId) => changeExercise(row, v)}
-									options={exercises.map((value) => ({ value, label: name(value) }))}
-								/>
-								<LocalizedSelect
-									label={m.setup_type_label({ n: i + 1 })}
-									value={row.kind}
-									onchange={(v: Kind) => (row.kind = v)}
-									options={[
-										isStatic(row.exercise)
-											? { value: 'hold', label: m.setup_hold() }
-											: { value: 'reps', label: m.setup_reps() },
-										{ value: 'duration', label: m.setup_interval() }
-									] as const}
-								/>
-							{/if}
-							<input
-								aria-label={m.setup_target_label({ n: i + 1 })}
+			<Card.Action>
+				<Button
+					variant="outline"
+					size="sm"
+					aria-expanded={edit}
+					onclick={() => {
+						if (!edit || validated()) edit = !edit;
+					}}
+				>
+					{#if edit}<Check data-icon="inline-start" />{m.setup_done()}{:else}<Pencil
+							data-icon="inline-start"
+						/>{m.setup_edit()}{/if}
+				</Button>
+			</Card.Action>
+		</Card.Header>
+		<Card.Content>
+			{#if edit}
+				<Field.Group
+					class="mb-3 grid grid-cols-2 items-end gap-2.5 rounded-lg bg-muted p-3.5 min-[521px]:grid-cols-[1fr_1fr_1.4fr]"
+				>
+					<Field.Field>
+						<Field.Label>{m.setup_repeat()}</Field.Label><LocalizedSelect
+							label={m.setup_repeat()}
+							value={mode}
+							onchange={(v: 'rounds' | 'duration') => (mode = v)}
+							options={[
+								{ value: 'rounds', label: m.setup_rounds() },
+								{ value: 'duration', label: m.setup_time() }
+							] as const}
+						/>
+					</Field.Field>
+					{#if mode === 'rounds'}<Field.Field>
+							<Field.Label for={`${id}-rounds`}>{m.setup_rounds()}</Field.Label><Input
+								id={`${id}-rounds`}
 								type="number"
 								min="1"
 								required
-								bind:value={row.value}
+								bind:value={rounds}
 							/>
-						</div>
-						<Button
-							variant="ghost"
-							size="icon"
-							aria-label={m.setup_remove_label({ n: i + 1 })}
-							onclick={() => remove(i)}
+						</Field.Field>{:else}<Field.Field>
+							<Field.Label for={`${id}-budget`}>{m.setup_budget()}</Field.Label><Input
+								id={`${id}-budget`}
+								type="number"
+								min="1"
+								required
+								bind:value={budget}
+							/>
+						</Field.Field>{/if}
+					<Field.Field class="max-[520px]:col-span-2">
+						<Field.Label for={`${id}-rest`}>{m.setup_auto()}</Field.Label><Input
+							id={`${id}-rest`}
+							type="number"
+							min="0"
+							required
+							bind:value={rest}
+						/>
+					</Field.Field>
+				</Field.Group>
+			{:else}
+				<dl
+					class="mb-3 grid grid-cols-[1fr_1fr_1.4fr] divide-x divide-border rounded-lg bg-muted py-4"
+				>
+					<div class="flex flex-col-reverse items-start gap-1 px-[clamp(8px,1.5vw,20px)]">
+						<dt class="text-xs text-muted-foreground">{m.setup_steps()}</dt>
+						<dd
+							class="m-0 font-mono text-[clamp(1.1rem,2vw,1.45rem)] leading-tight font-semibold tracking-tight"
 						>
-							<Trash2 />
+							{String(rows.length).padStart(2, '0')}
+						</dd>
+					</div>
+					<div class="flex flex-col-reverse items-start gap-1 px-[clamp(8px,1.5vw,20px)]">
+						<dt class="text-xs text-muted-foreground">
+							{mode === 'duration' ? m.setup_time() : m.setup_rounds()}
+						</dt>
+						<dd
+							class="m-0 font-mono text-[clamp(1.1rem,2vw,1.45rem)] leading-tight font-semibold tracking-tight"
+						>
+							{mode === 'duration'
+								? m.setup_s({ n: budget ?? 0 })
+								: String(rounds).padStart(2, '0')}
+						</dd>
+					</div>
+					<div class="flex flex-col-reverse items-start gap-1 px-[clamp(8px,1.5vw,20px)]">
+						<dt class="text-xs text-muted-foreground">{m.setup_auto_short()}</dt>
+						<dd
+							class="m-0 font-mono text-[clamp(1.1rem,2vw,1.45rem)] leading-tight font-semibold tracking-tight"
+						>
+							{m.setup_s({ n: rest ?? 0 })}
+						</dd>
+					</div>
+				</dl>
+			{/if}
+			<ol class="m-0 list-none divide-y divide-border p-0" aria-labelledby={`${id}-circuit-title`}>
+				{#each rows as row, i (row.key)}
+					<li
+						class={cn(
+							'flex min-h-[66px] items-center gap-2.5 px-1 py-2.5 min-[521px]:gap-3.5',
+							edit && 'max-[520px]:items-start'
+						)}
+						data-row={row.key}
+					>
+						<span
+							class={cn(
+								'grid size-[30px] shrink-0 place-items-center rounded-lg border font-mono text-xs font-semibold min-[521px]:size-[34px]',
+								row.kind === 'rest'
+									? 'border-border bg-muted text-muted-foreground'
+									: 'border-primary/30 bg-primary/15 text-(--step-foreground)'
+							)}
+							aria-hidden="true"
+						>
+							{String(i + 1).padStart(2, '0')}
+						</span>
+						{#if edit}
+							<Field.Group
+								class="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_62px] items-center gap-1.5 min-[521px]:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_70px] min-[741px]:grid-cols-[minmax(0,1fr)_80px] min-[941px]:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(64px,0.55fr)]"
+							>
+								{#if row.kind === 'rest'}<strong>{m.setup_rest()}</strong>{:else}
+									<Field.Field
+										class="col-span-2 min-[521px]:col-span-1 min-[741px]:col-span-2 min-[941px]:col-span-1"
+									>
+										<LocalizedSelect
+											label={m.setup_exercise_label({ n: i + 1 })}
+											value={row.exercise}
+											onchange={(v: ExerciseId) => changeExercise(row, v)}
+											options={exercises.map((value) => ({ value, label: name(value) }))}
+										/>
+									</Field.Field>
+									<Field.Field>
+										<LocalizedSelect
+											label={m.setup_type_label({ n: i + 1 })}
+											value={row.kind}
+											onchange={(v: Kind) => (row.kind = v)}
+											options={[
+												isStatic(row.exercise)
+													? { value: 'hold', label: m.setup_hold() }
+													: { value: 'reps', label: m.setup_reps() },
+												{ value: 'duration', label: m.setup_interval() }
+											] as const}
+										/>
+									</Field.Field>
+								{/if}
+								<Field.Field>
+									<Input
+										aria-label={m.setup_target_label({ n: i + 1 })}
+										type="number"
+										min="1"
+										required
+										bind:value={row.value}
+									/>
+								</Field.Field>
+							</Field.Group>
+							<Button
+								variant="ghost"
+								size="icon"
+								aria-label={m.setup_remove_label({ n: i + 1 })}
+								onclick={() => remove(i)}
+							>
+								<Trash2 />
+							</Button>
+						{:else}
+							<div class="grid min-w-0 gap-0.5">
+								<strong
+									class={cn(
+										'text-base font-semibold tracking-tight',
+										row.kind === 'rest' && 'text-sm text-muted-foreground'
+									)}
+								>
+									{row.kind === 'rest' ? m.setup_rest() : name(row.exercise)}
+								</strong>{#if row.kind !== 'rest'}<small class="text-xs text-muted-foreground">
+										{kindName(row.kind)}
+									</small>{/if}
+							</div>
+							<Badge variant="secondary" class="ml-auto shrink-0">
+								{#if row.kind === 'rest'}<Coffee data-icon="inline-start" />{/if}{row.kind ===
+								'reps'
+									? row.value
+									: m.setup_s({ n: row.value ?? 0 })}
+							</Badge>
+						{/if}
+					</li>
+				{/each}
+			</ol>
+		</Card.Content>
+		{#if edit || invalid}<Card.Footer class="flex-col items-start gap-3">
+				{#if edit}<div class="flex flex-wrap gap-2">
+						<Button variant="outline" data-add size="sm" onclick={() => add('reps')}>
+							<Plus data-icon="inline-start" />{m.setup_add()}
+						</Button><Button variant="outline" size="sm" onclick={() => add('rest')}>
+							<Coffee data-icon="inline-start" />{m.setup_add_rest()}
 						</Button>
-					{:else}
-						<div class="row-name">
-							<strong>
-								{row.kind === 'rest' ? m.setup_rest() : name(row.exercise)}
-							</strong>{#if row.kind !== 'rest'}<small>{kindName(row.kind)}</small>{/if}
-						</div>
-						<div class="quantity">
-							{#if row.kind === 'rest'}<Coffee size={15} />{/if}{row.kind === 'reps'
-								? row.value
-								: m.setup_s({ n: row.value ?? 0 })}
-						</div>
-					{/if}
-				</li>
-			{/each}
-		</ol>
-		{#if edit}<div class="add-actions">
-				<Button variant="outline" data-add size="sm" onclick={() => add('reps')}>
-					<Plus data-icon="inline-start" />{m.setup_add()}
-				</Button><Button variant="outline" size="sm" onclick={() => add('rest')}>
-					<Coffee data-icon="inline-start" />{m.setup_add_rest()}
+					</div>{/if}
+				{#if invalid}<Alert.Root variant="destructive">
+						<Alert.Description>{m.setup_invalid()}</Alert.Description>
+					</Alert.Root>{/if}
+			</Card.Footer>{/if}
+	</Card.Root>
+	<aside class="min-w-0" aria-labelledby={`${id}-settings-title`}>
+		<Card.Root>
+			<Card.Header>
+				<div>
+					<Card.Description>{m.setup_equipment()}</Card.Description>
+					<Card.Title><h2 id={`${id}-settings-title`}>{m.setup_settings()}</h2></Card.Title>
+				</div>
+				<Card.Action><SlidersHorizontal aria-hidden="true" /></Card.Action>
+			</Card.Header>
+			<Card.Content class="flex flex-col gap-5">
+				<Field.Group class="gap-4">
+					<Field.Field>
+						<Field.Label>{m.setup_model()}</Field.Label><LocalizedSelect
+							label={m.setup_model()}
+							value={model}
+							onchange={(v: 'mediapipe' | 'movenet') => (model = v)}
+							options={[
+								{ value: 'mediapipe', label: m.setup_mp() },
+								{ value: 'movenet', label: m.setup_mn() }
+							] as const}
+						/>
+					</Field.Field>
+					<Field.Field orientation="horizontal">
+						<Field.Label for={`${id}-sound`}><Volume2 />{m.setup_sound()}</Field.Label><Switch
+							id={`${id}-sound`}
+							class="ml-auto"
+							bind:checked={sound}
+						/>
+					</Field.Field>
+				</Field.Group>
+				<Offline {model} />
+				<Alert.Root
+					role="note"
+					class="[--card-foreground:var(--privacy-foreground)] [--card:var(--privacy-background)] [--muted-foreground:var(--privacy-foreground)]"
+				>
+					<ShieldCheck />
+					<Alert.Title>{m.setup_privacy_title()}</Alert.Title>
+					<Alert.Description>{m.setup_privacy()}</Alert.Description>
+				</Alert.Root>
+			</Card.Content>
+			<Card.Footer class="flex-col items-stretch gap-2">
+				<Button
+					size="lg"
+					class="w-full justify-between"
+					disabled={$updateLocked}
+					onclick={practice}
+				>
+					{planner ? m.start_workout() : m.setup_practice()}<ArrowUpRight data-icon="inline-end" />
+				</Button><Button variant="outline" class="w-full" onclick={copy}>
+					<Clipboard data-icon="inline-start" />{m.setup_copy()}
 				</Button>
-			</div>{/if}
-		{#if invalid}<p role="alert">{m.setup_invalid()}</p>{/if}
-	</section>
-	<aside class="panel settings" aria-labelledby="settings-title">
-		<header class="panel-head">
-			<div>
-				<p class="eyebrow"><i></i>{m.setup_equipment()}</p>
-				<h2 id="settings-title">{m.setup_settings()}</h2>
-			</div>
-			<SlidersHorizontal size={20} aria-hidden="true" />
-		</header>
-		<label>
-			{m.setup_model()}<LocalizedSelect
-				label={m.setup_model()}
-				value={model}
-				onchange={(v: 'mediapipe' | 'movenet') => (model = v)}
-				options={[
-					{ value: 'mediapipe', label: m.setup_mp() },
-					{ value: 'movenet', label: m.setup_mn() }
-				] as const}
-			/>
-		</label>
-		<label class="sound">
-			<Volume2 size={18} />{m.setup_sound()}<input
-				class="switch"
-				type="checkbox"
-				bind:checked={sound}
-			/>
-		</label>
-		<Offline {model} />
-		<div class="privacy">
-			<ShieldCheck size={20} />
-			<div>
-				<strong>{m.setup_privacy_title()}</strong>
-				<p>{m.setup_privacy()}</p>
-			</div>
-		</div>
-		<div class="actions">
-			<Button size="lg" class="w-full justify-between" disabled={$updateLocked} onclick={practice}>
-				{planner ? m.start_workout() : m.setup_practice()}<ArrowUpRight data-icon="inline-end" />
-			</Button><Button variant="outline" class="w-full" onclick={copy}>
-				<Clipboard data-icon="inline-start" />{m.setup_copy()}
-			</Button>
-		</div>
-		<div role="status">
-			{#if tooLong}{m.setup_too_long()}{/if}
-			{#if copied}{m.setup_copied()}{:else if manual}{m.setup_manual()}{/if}
-		</div>
-		{#if manual}<input
-				data-share
-				aria-label={m.setup_link()}
-				readonly
-				value={manual}
-				onfocus={(e) => e.currentTarget.select()}
-			/>{/if}
+				<div role="status" class="text-sm leading-relaxed empty:hidden">
+					{#if tooLong}{m.setup_too_long()}{/if}
+					{#if copied}{m.setup_copied()}{:else if manual}{m.setup_manual()}{/if}
+				</div>
+				{#if manual}<Field.Field>
+						<Input
+							data-share
+							aria-label={m.setup_link()}
+							readonly
+							value={manual}
+							onfocus={(event: FocusEvent) => {
+								if (event.currentTarget instanceof HTMLInputElement) event.currentTarget.select();
+							}}
+						/>
+					</Field.Field>{/if}
+			</Card.Footer>
+		</Card.Root>
 	</aside>
 </form>
 
 <style>
 	.dashboard {
-		display: grid;
-		grid-template-columns: minmax(0, 1.7fr) minmax(270px, 1fr);
-		gap: 20px;
-		align-items: start;
-	}
-	.panel {
-		min-width: 0;
-		padding: clamp(18px, 2.6vw, 32px);
-		border: 1px solid #ddddd6;
-		border-radius: 14px;
-		background: #fffefa;
-	}
-	.panel-head {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		gap: 12px;
-		margin-bottom: 23px;
-	}
-	.eyebrow {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		margin: 0 0 6px;
-		font:
-			650 10px/1.45 ui-monospace,
-			monospace;
-		letter-spacing: 0.14em;
-		text-transform: uppercase;
-		color: #616565;
-	}
-	.eyebrow i {
-		width: 15px;
-		height: 2px;
-		background: #de6a30;
-	}
-	h2 {
-		margin: 0;
-		letter-spacing: -0.055em;
-		line-height: 1.15;
-		font-size: clamp(1.45rem, 3vw, 2.1rem);
-		font-weight: 720;
-	}
-	.metrics,
-	.configuration {
-		display: grid;
-		grid-template-columns: 1fr 1fr 1.4fr;
-		border-radius: 8px;
-		background: #f1f1ea;
-		margin: 0 0 13px;
-		padding: 15px 0;
-	}
-	.metrics > div {
-		display: flex;
-		flex-direction: column-reverse;
-		align-items: flex-start;
-		gap: 3px;
-		padding: 0 clamp(8px, 1.5vw, 20px);
-		border-right: 1px solid #d8d9d1;
-	}
-	.metrics > div:last-child {
-		border: none;
-	}
-	.metrics dd {
-		margin: 0;
-		font:
-			650 clamp(1.1rem, 2vw, 1.45rem)/1.15 ui-monospace,
-			monospace;
-		letter-spacing: -0.055em;
-	}
-	.metrics dt,
-	small {
-		font-size: 0.75rem;
-		color: #626762;
-	}
-	.configuration {
-		gap: 10px;
-		align-items: end;
-		padding: 14px;
-	}
-	label {
-		display: grid;
-		gap: 7px;
-		font-size: 0.82rem;
-		font-weight: 600;
-	}
-	input:not([type='checkbox']) {
-		background-color: #fffefa;
-		border: 1px solid #cfcec6;
-		border-radius: 7px;
-		min-height: 40px;
-		min-width: 0;
-		width: 100%;
-		line-height: 1.4;
-		font-family: inherit;
-		font-weight: 500;
-		font-size: 0.85rem;
-		color: #252b2c;
-		padding: 8px 10px;
-	}
-	.dashboard :global(button:focus-visible),
-	input:focus-visible {
-		outline: 2px solid #a34211;
-		outline-offset: 2px;
-	}
-	ol {
-		margin: 0;
-		padding: 0;
-		list-style: none;
-	}
-	li {
-		min-height: 66px;
-		border-bottom: 1px solid #e5e3dc;
-		display: flex;
-		align-items: center;
-		gap: 14px;
-		padding: 10px 4px;
-	}
-	li:last-child {
-		border-bottom: 0;
-	}
-	.number {
-		flex: 0 0 34px;
-		width: 34px;
-		height: 34px;
-		border: 1px solid #f0d3ba;
-		display: grid;
-		place-items: center;
-		border-radius: 8px;
-		background: #fff0df;
-		color: #92400e;
-		font:
-			600 0.79rem/1 ui-monospace,
-			monospace;
-	}
-	.row-name {
-		display: grid;
-		gap: 2px;
-	}
-	.row-name strong {
-		font-weight: 660;
-		letter-spacing: -0.022em;
-		font-size: 1.02rem;
-	}
-	.quantity {
-		margin-left: auto;
-		display: flex;
-		align-items: center;
-		gap: 7px;
-		border-radius: 5px;
-		padding: 4px 9px;
-		background: #f3f2ed;
-		color: #444b48;
-		font:
-			600 0.86rem/1.3 ui-monospace,
-			monospace;
-		white-space: nowrap;
-	}
-	.break-row .number {
-		background: #f1f2ef;
-		color: #5d655e;
-		border-color: #dadcd5;
-	}
-	.break-row .row-name strong {
-		color: #575e59;
-		font-size: 0.93rem;
-	}
-	.row-fields {
-		flex: 1;
-		min-width: 0;
-		display: grid;
-		grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(64px, 0.55fr);
-		align-items: center;
-		gap: 6px;
-	}
-	.add-actions {
-		margin-top: 15px;
-		display: flex;
-		gap: 8px;
-		flex-wrap: wrap;
-	}
-	.settings .panel-head > :global(svg) {
-		color: #686e69;
-	}
-	.sound {
-		display: flex;
-		align-items: center;
-		gap: 9px;
-		padding: 18px 0;
-	}
-	.switch {
-		appearance: none;
-		position: relative;
-		display: inline-block;
-		width: 37px;
-		height: 22px;
-		min-width: 37px;
-		border-radius: 20px;
-		cursor: pointer;
-		border: 1px solid #888e86;
-		background: #e0e1d9;
-		margin-left: auto;
-	}
-	.switch:before {
-		content: '';
-		position: absolute;
-		left: 3px;
-		top: 3px;
-		width: 14px;
-		height: 14px;
-		background: #646b64;
-		border-radius: 50%;
-	}
-	.switch:checked {
-		background: #ffae70;
-		border-color: #b4622b;
-	}
-	.switch:checked:before {
-		left: 18px;
-		background: #472d1a;
-	}
-	.privacy {
-		border-radius: 8px;
-		background: #f0f2ea;
-		padding: 15px;
-		display: flex;
-		align-items: start;
-		gap: 10px;
-		color: #465343;
-	}
-	.privacy :global(svg) {
-		flex-shrink: 0;
-	}
-	.privacy strong {
-		font-size: 0.84rem;
-		font-weight: 680;
-	}
-	.privacy p {
-		font-size: 0.8rem;
-		line-height: 1.55;
-		margin: 3px 0 0;
-	}
-	.actions {
-		margin-top: 23px;
-		display: grid;
-		gap: 8px;
-	}
-	.settings [role='status']:not(:empty) {
-		font-size: 0.8rem;
-		line-height: 1.5;
-		margin-top: 9px;
-	}
-	.circuit [role='alert'] {
-		color: #8d381b;
-		font-size: 0.84rem;
-	}
-	@media (max-width: 940px) {
-		.row-fields {
-			grid-template-columns: 1fr 80px;
-		}
-		.row-fields :global([data-slot='select-trigger']:first-child) {
-			grid-column: 1/-1;
-		}
-	}
-	@media (max-width: 740px) {
-		.dashboard {
-			grid-template-columns: 1fr;
-		}
-		.panel-head {
-			margin-bottom: 16px;
-		}
-		.row-fields {
-			grid-template-columns: 1.2fr 1fr 70px;
-		}
-		.row-fields :global([data-slot='select-trigger']:first-child) {
-			grid-column: auto;
-		}
-	}
-	@media (max-width: 520px) {
-		.row-fields {
-			grid-template-columns: 1fr 62px;
-		}
-		.row-fields :global([data-slot='select-trigger']:first-child) {
-			grid-column: 1/-1;
-		}
-		.configuration {
-			grid-template-columns: 1fr 1fr;
-		}
-		.configuration label:last-child {
-			grid-column: 1/-1;
-		}
-		li {
-			gap: 9px;
-		}
-		.panel-head {
-			flex-wrap: wrap;
-		}
-		.number {
-			width: 30px;
-			flex-basis: 30px;
-			height: 30px;
-		}
-		.editing {
-			align-items: start;
-		}
-		.panel {
-			padding: 18px;
-		}
-		.metrics dt {
-			font-size: 0.7rem;
-		}
+		--step-foreground: #92400e;
+		--privacy-background: #f0f2ea;
+		--privacy-foreground: #465343;
 	}
 </style>

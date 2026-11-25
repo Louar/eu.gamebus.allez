@@ -325,7 +325,7 @@ Then(
 	}
 );
 When('I switch setup to Dutch', async ({ page }) => {
-	await button(page, 'Nederlands').click();
+	await page.getByRole('radio', { name: 'Nederlands', exact: true }).click();
 	await expect(page.getByRole('heading', { name: 'Trainingsstudio' })).toBeVisible();
 	await expect(page.locator('html')).toHaveAttribute('lang', 'nl');
 });

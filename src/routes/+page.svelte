@@ -5,6 +5,8 @@
 	import { decodeWorkout, example, type Workout } from '#lib/workout.js';
 	import Shield from '@lucide/svelte/icons/shield-check';
 	import { onMount } from 'svelte';
+	import * as ToggleGroup from '#lib/components/ui/toggle-group/index.js';
+	import { Separator } from '#lib/components/ui/separator/index.js';
 	let workout = $state<Workout>(example),
 		error = $state(''),
 		ready = $state(false);
@@ -32,153 +34,48 @@
 <svelte:head>
 	<title>{m.page_title()}</title><meta name="theme-color" content="#f8f8f4" />
 </svelte:head>
-<header class="sticky top-0 z-10 mb-6">
-	<div class="bar">
-		<div class="identity">
+<header class="sticky top-0 z-10 mb-6 border-b bg-background">
+	<div
+		class="mx-auto flex min-h-15 max-w-302 items-center justify-between px-[clamp(1rem,3vw,2rem)] min-[621px]:min-h-18"
+	>
+		<div class="flex items-center gap-2.5">
 			<svg width="37" height="37" viewBox="0 0 40 40" aria-hidden="true">
 				<rect width="40" height="40" rx="10" fill="#f3713c" /><path
 					d="M7 29 18 10h7L14 29zm12 0 8-14 6 14h-7l-1-4-2 4z"
 					fill="#172025"
 				/>
-			</svg><strong>{m.brand()}</strong><span class="descriptor">{m.studio()}</span>
+			</svg><strong class="text-[1.85rem] leading-none font-[820] tracking-[-0.08em]">
+				{m.brand()}
+			</strong>
+			<Separator orientation="vertical" class="ml-1 hidden h-5 min-[621px]:block" />
+			<span class="hidden text-sm font-medium text-muted-foreground min-[621px]:inline">
+				{m.studio()}
+			</span>
 		</div>
-		<div class="tools">
-			<div class="languages">
-				<button
-					aria-label={m.english()}
-					aria-pressed={locale === 'en'}
-					onclick={() => setLocale('en')}
-				>
-					EN
-				</button><button
-					aria-label={m.dutch()}
-					aria-pressed={locale === 'nl'}
-					onclick={() => setLocale('nl')}
-				>
-					NL
-				</button>
-			</div>
-		</div>
+		<ToggleGroup.Root
+			type="single"
+			variant="outline"
+			size="sm"
+			value={locale}
+			onValueChange={(value: string) => {
+				if (value === 'en' || value === 'nl') void setLocale(value);
+			}}
+		>
+			<ToggleGroup.Item value="en" aria-label={m.english()}>EN</ToggleGroup.Item>
+			<ToggleGroup.Item value="nl" aria-label={m.dutch()}>NL</ToggleGroup.Item>
+		</ToggleGroup.Root>
 	</div>
 </header>
-<main>
+<main class="mx-auto min-h-[calc(100svh-160px)] max-w-302 px-[clamp(1rem,3vw,2rem)]">
 	{#if ready}<Setup {workout} {error} planner={{ model, sound }} />{/if}
 </main>
-<footer>
-	<!-- <span>{m.brand()} <b>/</b> {m.studio()}</span> -->
-	<span class="ml-auto">
+<footer
+	class="mx-auto mt-6 flex min-h-16 max-w-302 items-center justify-between gap-6 border-t px-[clamp(1rem,3vw,2rem)] text-[0.7rem] text-muted-foreground"
+>
+	<span class="ml-auto flex items-center gap-2">
 		<Shield size={14} aria-hidden="true" />{m.local_blurb()}
 	</span>
-	<span class="private"><i></i>{m.private_session()}</span>
+	<span class="hidden items-center gap-2 text-xs font-semibold min-[401px]:flex">
+		<i class="size-[7px] rounded-full bg-studio-success"></i>{m.private_session()}
+	</span>
 </footer>
-
-<style>
-	header {
-		background: #fff;
-		border-bottom: 1px solid #dfdfd9;
-	}
-	.bar,
-	main,
-	footer {
-		max-width: 1208px;
-		margin: auto;
-		padding-left: clamp(1rem, 3vw, 2rem);
-		padding-right: clamp(1rem, 3vw, 2rem);
-	}
-	.bar,
-	.identity,
-	.tools,
-	.private,
-	footer,
-	footer span,
-	.languages {
-		display: flex;
-		align-items: center;
-	}
-	.bar {
-		min-height: 72px;
-		justify-content: space-between;
-	}
-	.identity {
-		gap: 0.65rem;
-	}
-	.identity strong {
-		font-weight: 820;
-		font-size: 1.85rem;
-		letter-spacing: -0.08em;
-		line-height: 1;
-	}
-	.descriptor {
-		font-size: 0.8rem;
-		font-weight: 550;
-		color: #656762;
-		border-left: 1px solid #dadcd4;
-		padding-left: 1rem;
-		margin-left: 0.4rem;
-	}
-	.tools {
-		gap: 1.2rem;
-	}
-	.languages {
-		border: 1px solid #d8d9d3;
-		border-radius: 0.45rem;
-		padding: 2px;
-	}
-	.languages button {
-		padding: 0.25rem 0.45rem;
-		color: #5c6262;
-		font-weight: 650;
-		font-size: 0.68rem;
-		letter-spacing: 0.03em;
-		border-radius: 0.28rem;
-	}
-	.languages button[aria-pressed='true'] {
-		color: white;
-		background: #242b30;
-	}
-	.private {
-		gap: 0.45rem;
-		font-size: 0.73rem;
-		font-weight: 600;
-	}
-	.private i {
-		height: 7px;
-		width: 7px;
-		border-radius: 50%;
-		background: #43856c;
-	}
-	main {
-		min-height: calc(100svh - 160px);
-	}
-	footer {
-		border-top: 1px solid #dbddd4;
-		min-height: 65px;
-		margin-top: 1.5rem;
-		justify-content: space-between;
-		gap: 1.5rem;
-		color: #686c67;
-		font-size: 0.7rem;
-	}
-	footer span {
-		gap: 0.45rem;
-	}
-	footer b {
-		color: #e37d4b;
-	}
-	@media (max-width: 620px) {
-		.descriptor {
-			display: none;
-		}
-		.bar {
-			min-height: 60px;
-		}
-		.tools {
-			gap: 0.7rem;
-		}
-	}
-	@media (max-width: 400px) {
-		.private {
-			display: none;
-		}
-	}
-</style>
