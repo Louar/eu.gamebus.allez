@@ -307,6 +307,23 @@ test('manual finish while paused preserves partial results without wall clock le
 	assert.equal(s.results[0].partial, true);
 });
 
+test('quality survives interruptions and is saved separately for each round', () => {
+	const s = run([interval], { repeat: { rounds: 2 } });
+	assert.equal(s.current!.quality, null);
+	visit(s, cycle, 0.1);
+	const score = s.current!.quality;
+	assert.ok(score !== null && Number.isInteger(score) && score >= 0 && score <= 100);
+	s.pause(1);
+	s.resume(5);
+	visit(s, [cycle[0]], 5.1);
+	assert.equal(s.current!.quality, score);
+	s.tick(6);
+	assert.equal(s.results[0].quality, score);
+	assert.equal(s.current!.quality, null);
+	s.finish(6.1);
+	assert.equal(s.results[1].quality, null);
+});
+
 test('round target changes preserve progress and control when the session ends', () => {
 	const original: Workout = { v: 1, steps: [interval] };
 	const s = new Session(original);

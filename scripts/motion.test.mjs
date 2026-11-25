@@ -12,6 +12,82 @@ function replay(id, frames) {
 function reps(id, frames) {
 	return replay(id, frames).filter((u) => u.rep).length;
 }
+
+function shallowerSquat(id) {
+	const f = demoFrames(id).find((p) => p.points.left_hip.y === 113);
+	for (const side of ['left', 'right'])
+		f.points[`${side}_ankle`].x = f.points[`${side}_knee`].x + 10;
+	return f;
+}
+
+test('round quality averages completed reps, not frames or unfinished cycles', () => {
+	const t = new Tracker('squat');
+	const [standing, deep] = demoFrames('squat');
+	const shallow = shallowerSquat('squat');
+	let tick = 0;
+	const phase = (f, n = 2) =>
+		Array.from({ length: n }, () => t.update({ ...f, timestamp: tick++ / 20 }));
+	phase(standing);
+	phase(shallow, 8);
+	assert.equal(t.roundQuality, null);
+	assert.ok(phase(standing).at(-1).rep);
+	const first = t.roundQuality;
+	assert.ok(first > 0 && first < 90);
+	phase(shallow);
+	phase({ ...standing, missing: true });
+	assert.equal(t.roundQuality, first);
+	phase(standing);
+	phase(shallow);
+	phase(deep);
+	assert.ok(phase(standing).at(-1).rep);
+	assert.ok(Math.abs(t.roundQuality - (first + 100) / 2) <= 1);
+	t.reset('squat');
+	assert.equal(t.roundQuality, null);
+});
+
+test('hold quality weights observed seconds and excludes gaps', () => {
+	const t = new Tracker('squat-hold');
+	const [deep] = demoFrames('squat-hold');
+	const shallow = shallowerSquat('squat-hold');
+	const at = (timestamp, f) => t.update({ ...f, timestamp });
+	at(0, shallow);
+	assert.equal(t.roundQuality, null);
+	at(0.1, shallow);
+	const first = t.roundQuality;
+	assert.ok(first > 0 && first < 75);
+	assert.equal(at(2, deep).held, 0);
+	assert.equal(t.roundQuality, first);
+	at(2.3, deep);
+	assert.ok(Math.abs(t.roundQuality - (first + 300) / 4) <= 1);
+});
+
+for (const id of ['jumping-jack', 'front-jack']) {
+	test(`${id} rewards wider foot spread with identical arm positions`, () => {
+		const score = (inset) => {
+			const t = new Tracker(id);
+			const frames = demoFrames(id);
+			frames[1].points.left_ankle.x -= inset;
+			frames[1].points.right_ankle.x += inset;
+			let tick = 0;
+			for (const f of frames)
+				for (let i = 0; i < 3; i++) t.update({ ...f, timestamp: tick++ / 20 });
+			return t.roundQuality;
+		};
+		const narrow = score(10);
+		assert.notEqual(narrow, null);
+		assert.ok(score(0) > narrow);
+	});
+}
+
+test('all exercise demonstrations produce bounded scores', () => {
+	for (const id of exercises) {
+		const t = new Tracker(id);
+		let tick = 0;
+		for (const f of demoFrames(id))
+			for (let n = 0; n < 2; n++) t.update({ ...f, timestamp: tick++ / 20 });
+		assert.ok(Number.isInteger(t.roundQuality) && t.roundQuality > 0 && t.roundQuality <= 100, id);
+	}
+});
 for (const id of exercises) {
 	test(`three ${id} cycles or observed hold`, () => {
 		const poses = demoFrames(id);

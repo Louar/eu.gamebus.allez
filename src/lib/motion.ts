@@ -40,6 +40,10 @@ export interface TrackingUpdate {
 	continuous: number;
 }
 export interface ExerciseTracker {
+	/** Mean form score (0-100) since reset, or null until a rep or hold interval is earned. */
+	readonly roundQuality: number | null;
+	/** Discard in-flight movement or hold continuity without starting a new round. */
+	breakContinuity(): void;
 	reset(id: ExerciseId): void;
 	update(frame: PoseFrame): TrackingUpdate;
 }
@@ -78,9 +82,8 @@ function angle(a: Keypoint, b: Keypoint, c: Keypoint) {
 	return (Math.acos(Math.min(1, Math.max(-1, cos))) * 180) / Math.PI;
 }
 
-/** Single-frame evidence, exposed separately for scoring sparse archive stills. */
-export function posture(id: ExerciseId, f: PoseFrame, ground?: number): Phase {
-	if (f.missing || !(f.width > 0 && f.height > 0)) return 'lost';
+function trackedSide(id: ExerciseId, f: PoseFrame) {
+	if (f.missing || !(f.width > 0 && f.height > 0)) return;
 	const p = f.points;
 	const usable = (q?: Keypoint) =>
 		q &&
@@ -92,9 +95,24 @@ export function posture(id: ExerciseId, f: PoseFrame, ground?: number): Phase {
 	const needsArms = jack || id === 'push-up' || id === 'burpee' || id === 'plank';
 	const needed = needsArms ? joints : legAndTorsoJoints;
 	const visible = sides.filter((s) => needed.every((j) => usable(p[`${s}_${j}`])));
-	if (!visible.length || (jack && visible.length !== 2)) return 'lost';
+	if (!visible.length || (jack && visible.length !== 2)) return;
 	const quality = (s: string) => Math.min(...needed.map((j) => p[`${s}_${j}`].score));
-	const side = visible.length === 2 && quality('right') > quality('left') ? 'right' : visible[0];
+	return visible.length === 2 && quality('right') > quality('left') ? 'right' : visible[0];
+}
+
+/** Single-frame evidence, exposed separately for scoring sparse archive stills. */
+export function posture(id: ExerciseId, f: PoseFrame, ground?: number): Phase {
+	return classify(id, f, ground, trackedSide(id, f));
+}
+
+function classify(
+	id: ExerciseId,
+	f: PoseFrame,
+	ground: number | undefined,
+	side: ReturnType<typeof trackedSide>
+): Phase {
+	if (!side) return 'lost';
+	const p = f.points;
 	const [s, e, w, h, k, a] = joints.map((j) => p[`${side}_${j}`]);
 	const scale = dist(s, h);
 	if (scale < 2) return 'lost';
@@ -103,7 +121,7 @@ export function posture(id: ExerciseId, f: PoseFrame, ground?: number): Phase {
 		floor = Math.abs(h.y - s.y) / scale < 0.63;
 	const stand = upright && knee > 153 && a.y - h.y > scale * 0.66;
 	const squat = h.y - s.y > scale * 0.45 && knee < 132 && a.y > h.y + scale * 0.17;
-	if (jack) {
+	if (id === 'front-jack' || id === 'jumping-jack') {
 		const l = p.left_shoulder,
 			r = p.right_shoulder;
 		const feet = Math.abs(p.left_ankle.x - p.right_ankle.x) / scale;
@@ -163,6 +181,46 @@ export function posture(id: ExerciseId, f: PoseFrame, ground?: number): Phase {
 	return 'waiting';
 }
 
+// Projected range-of-motion heuristics, not a clinical assessment. Saturate at the
+// target so deeper bends and higher jumps are not rewarded without limit.
+function phaseQuality(
+	id: ExerciseId,
+	phase: Phase,
+	f: PoseFrame,
+	side: (typeof sides)[number],
+	ground?: number
+) {
+	const p = f.points;
+	const [s, e, w, h, k, a] = joints.map((j) => p[`${side}_${j}`]);
+	const scale = dist(s, h);
+	const ramp = (value: number, edge: number, target: number) =>
+		100 * Math.max(0, Math.min(1, (value - edge) / (target - edge)));
+	switch (phase) {
+		case 'standing':
+			return ramp(angle(h, k, a), 153, 175);
+		case 'tuck':
+		case 'lowered':
+			return phase === 'tuck' || id.startsWith('squat')
+				? ramp(angle(h, k, a), 132, 90)
+				: ramp(angle(s, e, w), 123, 90);
+		case 'support':
+			return ramp(angle(s, e, w), 149, 175);
+		case 'plank':
+			return Math.min(ramp(angle(s, h, a), 145, 175), ramp(angle(h, k, a), 145, 175));
+		case 'jump':
+			return ramp(((ground ?? a.y) - a.y) / scale, 0.18, 0.35);
+		case 'lying':
+			return ramp(Math.abs(h.y - s.y) / scale, 0.63, 0.1);
+		case 'seated':
+			return ramp((h.y - s.y) / scale, 0.72, 0.95);
+		case 'open':
+		case 'forward':
+			return ramp(Math.abs(p.left_ankle.x - p.right_ankle.x) / scale, 0.55, 2);
+		default:
+			return 0;
+	}
+}
+
 export class Tracker implements ExerciseTracker {
 	private id: ExerciseId;
 	private index = 0;
@@ -173,11 +231,22 @@ export class Tracker implements ExerciseTracker {
 	private continuous = 0;
 	private ground?: number;
 	private lastTuck = -Infinity;
+	private phasePeaks: number[] = [];
+	private qualitySum = 0;
+	private qualityWeight = 0;
+	get roundQuality() {
+		return this.qualityWeight ? Math.round(this.qualitySum / this.qualityWeight) : null;
+	}
 	constructor(id: ExerciseId = 'squat') {
 		this.id = id;
 	}
 	reset(id: ExerciseId) {
 		this.id = id;
+		this.qualitySum = this.qualityWeight = 0;
+		this.breakContinuity();
+	}
+	breakContinuity() {
+		this.phasePeaks = [];
 		this.index = 0;
 		this.last = NaN;
 		this.provider = '';
@@ -198,12 +267,13 @@ export class Tracker implements ExerciseTracker {
 				rep: false
 			};
 		if (f.provider !== this.provider || dt > 0.35) {
-			this.reset(this.id);
+			this.breakContinuity();
 			dt = 0;
 		}
-		const phase = posture(this.id, f, this.ground);
-		if (phase === 'lost') {
-			this.reset(this.id);
+		const side = trackedSide(this.id, f);
+		const phase = classify(this.id, f, this.ground, side);
+		if (!side || phase === 'lost') {
+			this.breakContinuity();
 			this.last = f.timestamp;
 			return { phase, status: 'lost', rep: false, held: 0, continuous: 0 };
 		}
@@ -214,7 +284,10 @@ export class Tracker implements ExerciseTracker {
 		const sequence: readonly string[] = cycles[this.id];
 		if (this.id === 'burpee' && sequence[this.index] === 'jump') {
 			if (phase === 'tuck') this.lastTuck = f.timestamp;
-			if (f.timestamp - this.lastTuck > 0.75) this.index = 1;
+			if (f.timestamp - this.lastTuck > 0.75) {
+				this.index = 1;
+				this.phasePeaks = [];
+			}
 		}
 		let rep = false,
 			held = 0;
@@ -224,23 +297,45 @@ export class Tracker implements ExerciseTracker {
 			if (phase === sequence[0] && this.samples >= 2) {
 				held = dt;
 				this.continuous += dt;
+				this.qualitySum += dt * phaseQuality(this.id, phase, f, side);
+				this.qualityWeight += dt;
 			}
 			if (phase !== sequence[0] && this.samples >= 2) this.continuous = 0;
 		} else if (this.samples >= 2 && phase === sequence[this.index]) {
+			this.phasePeaks[this.index] = phaseQuality(this.id, phase, f, side, this.ground);
 			if (phase === 'tuck') this.lastTuck = f.timestamp;
 			if (this.id === 'burpee' && this.index === 0)
 				this.ground = Math.max(f.points.left_ankle?.y ?? 0, f.points.right_ankle?.y ?? 0);
 			if (++this.index === sequence.length) {
 				rep = true;
+				// Depth and jump width come from the active phase, not the return to rest.
+				const peaks = this.phasePeaks;
+				this.qualitySum +=
+					this.id === 'burpee'
+						? peaks.slice(1).reduce((sum, q) => sum + q, 0) / (sequence.length - 1)
+						: this.id === 'sit-up'
+							? (peaks[0] + peaks[1]) / 2
+							: peaks[1];
+				this.qualityWeight++;
+				this.phasePeaks = [peaks[this.index - 1]];
 				this.index = 1;
 			}
+		} else if (this.index > 0 && this.samples >= 2 && phase === sequence[this.index - 1]) {
+			// The phase is recognized before the athlete reaches its deepest or widest point.
+			const i = this.index - 1;
+			this.phasePeaks[i] = Math.max(
+				this.phasePeaks[i] ?? 0,
+				phaseQuality(this.id, phase, f, side, this.ground)
+			);
 		} else if (
 			this.samples >= 2 &&
 			phase === sequence[0] &&
 			this.index > 1 &&
 			sequence[this.index] !== 'jump'
-		)
+		) {
 			this.index = 1;
+			this.phasePeaks = [phaseQuality(this.id, phase, f, side, this.ground)];
+		}
 		return {
 			phase,
 			status:

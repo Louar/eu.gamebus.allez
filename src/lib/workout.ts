@@ -110,6 +110,7 @@ export function decodeWorkout(encoded: string): Workout {
 }
 
 export interface Result {
+	quality: number | null;
 	round: number;
 	stepIndex: number;
 	exercise: ExerciseId;
@@ -187,6 +188,7 @@ export class Session {
 			this.state = 'exercise';
 			this.tracker.reset(step.exercise);
 			this.current = {
+				quality: null,
 				round: this.round,
 				stepIndex: this.stepIndex,
 				exercise: step.exercise,
@@ -294,6 +296,7 @@ export class Session {
 		this.seenAt = u.status === 'lost' ? null : frame.timestamp;
 		this.refreshLost();
 		const r = this.current;
+		r.quality = this.tracker.roundQuality;
 		r.reps += Number(u.rep);
 		r.held += u.held;
 		r.continuous = u.continuous;
@@ -316,7 +319,7 @@ export class Session {
 		if (this.seenAt !== null) this.tracked += Math.min(0.25, this.now - this.seenAt);
 		this.seenAt = null;
 		if (this.current) {
-			this.tracker.reset(this.current.exercise);
+			this.tracker.breakContinuity();
 			this.current.continuous = 0;
 		}
 	}

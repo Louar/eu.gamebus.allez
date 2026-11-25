@@ -168,6 +168,9 @@ When('{int} seconds pass', async ({ page }, seconds: number) => {
 Then('the counter reads {string}', async ({ page }, text: string) => {
 	await expect(page.getByTestId('counter')).toContainText(text);
 });
+Then('the form quality indicator includes {string}', async ({ page }, text: string) => {
+	await expect(page.getByTestId('quality-score')).toContainText(text);
+});
 Then('the interval repetition count reads {string}', async ({ page }, text: string) => {
 	await expect(page.getByTestId('counter').locator('..').getByRole('strong')).toHaveText(text);
 });

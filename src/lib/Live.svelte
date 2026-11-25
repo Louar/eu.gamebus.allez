@@ -7,6 +7,7 @@
 	import * as Alert from '#lib/components/ui/alert/index.js';
 	import { DropdownMenu, Popover } from 'bits-ui';
 	import { Badge } from '#lib/components/ui/badge/index.js';
+	import { Progress } from '#lib/components/ui/progress/index.js';
 	import { Session, type Workout } from './workout';
 	import {
 		Tracker,
@@ -31,6 +32,8 @@
 	import Hourglass from '@lucide/svelte/icons/hourglass';
 	import Timer from '@lucide/svelte/icons/timer';
 	import Coffee from '@lucide/svelte/icons/coffee';
+	import Trophy from '@lucide/svelte/icons/trophy';
+	import Gauge from '@lucide/svelte/icons/gauge';
 	let {
 		workout,
 		model,
@@ -57,6 +60,7 @@
 		error = $state<'' | 'camera' | 'model'>(''),
 		loaded = $state(false);
 	let value = $state(0),
+		quality = $state<number | null>(null),
 		hold = $state(0),
 		signal = $state<TrackingUpdate | null>(null),
 		image = $state.raw<PoseFrame | null>(null);
@@ -128,6 +132,7 @@
 		activeId = practice;
 		tracker.reset(practice);
 		value = 0;
+		quality = null;
 		hold = 0;
 	}
 	function snapshot() {
@@ -161,6 +166,7 @@
 		}
 		activeId = s.exercise;
 		signal = session.update;
+		quality = r?.quality ?? null;
 		const seconds = Math.floor((r?.held ?? 0) + 1e-8),
 			count = r?.reps ?? 0;
 		if ('reps' in s) readout = m.rep_target({ now: count, target: s.reps });
@@ -207,6 +213,7 @@
 		image = frame;
 		if (stage === 'practice') {
 			signal = tracker.update(frame);
+			quality = tracker.roundQuality;
 			value += Number(signal.rep);
 			const prev = hold;
 			hold += signal.held;
@@ -231,7 +238,7 @@
 		if (stage === 'practice') {
 			paused = !paused;
 			if (!paused) {
-				tracker.reset(practice);
+				tracker.breakContinuity();
 				clearMotion();
 			}
 			return;
@@ -249,7 +256,7 @@
 	function visibility(hidden: boolean) {
 		if (!hidden) return;
 		if (stage === 'practice') {
-			tracker.reset(practice);
+			tracker.breakContinuity();
 			clearMotion();
 		} else if (!paused && stage !== 'summary') toggle();
 	}
@@ -274,7 +281,7 @@
 		loaded = false;
 		error = '';
 		clearMotion();
-		tracker.reset(practice);
+		tracker.breakContinuity();
 		if (stage === 'exercise') session.interrupt(now());
 		if (replay) {
 			loaded = true;
@@ -354,6 +361,18 @@
 	});
 </script>
 
+{#snippet qualityIndicator(score: number | null)}
+	{@const excellent = score !== null && score > 80}
+	<div class="flex flex-wrap items-center gap-x-2 gap-y-1" data-testid="quality-score">
+		<span class="text-xs">{m.form_quality()}</span>
+		<Badge variant={excellent ? 'default' : 'secondary'}>
+			{#if excellent}<Trophy data-icon="inline-start" aria-hidden="true" />{/if}
+			{score === null ? m.not_scored() : `${score}/100`}
+		</Badge>
+		{#if excellent}<span class="text-xs">{m.excellent_form()}</span>{/if}
+	</div>
+{/snippet}
+
 {#snippet preview()}
 	<video {@attach attachCamera} muted autoplay playsinline aria-label={m.preview()}></video>
 	{#if image && !paused && stage !== 'rest'}<div class="overlay">
@@ -414,6 +433,7 @@
 										? m.held_s({ n: Math.floor(r.held) })
 										: reps(r.reps)}
 						</strong>
+						{@render qualityIndicator(r.quality)}
 						<p>
 							{r.partial ? m.partial() : m.complete()}{#if 'duration' in target}
 								· {m.duration_result({
@@ -607,27 +627,56 @@
 						</p>{/if}
 				</header>
 				<div class="pane telemetry" data-testid="exercise-progress">
-					<small>
-						{stage === 'countdown'
-							? m.ready()
-							: stage === 'rest'
-								? m.rest_title()
-								: stage === 'exercise' && interval
-									? m.setup_interval()
-									: staticExercise(activeId)
-										? m.setup_hold()
-										: m.setup_reps()}
-					</small>
-					{#key beat}<div class="digits" data-testid="counter" class:pulse={beat > 0}>
-							{#if stage === 'practice'}{staticExercise(practice)
-									? Math.floor(hold)
-									: value}{:else if stage === 'countdown'}{Math.ceil(
-									countdown
-								)}{:else if stage === 'rest'}<span data-testid="rest-clock">
-									{readout}
-								</span>{:else}{interval || readout}{/if}
-						</div>{/key}
-					{#if stage === 'exercise' && interval}<strong>{intervalCount}</strong>{/if}
+					<div class="flex flex-col gap-1">
+						<small>
+							{stage === 'countdown'
+								? m.ready()
+								: stage === 'rest'
+									? m.rest_title()
+									: stage === 'exercise' && interval
+										? m.setup_interval()
+										: staticExercise(activeId)
+											? m.setup_hold()
+											: m.setup_reps()}
+						</small>
+						{#key beat}<div class="digits" data-testid="counter" class:pulse={beat > 0}>
+								{#if stage === 'practice'}{staticExercise(practice)
+										? Math.floor(hold)
+										: value}{:else if stage === 'countdown'}{Math.ceil(
+										countdown
+									)}{:else if stage === 'rest'}<span data-testid="rest-clock">
+										{readout}
+									</span>{:else}{interval || readout}{/if}
+							</div>{/key}
+						{#if stage === 'exercise' && interval}<strong>{intervalCount}</strong>{/if}
+					</div>
+					{#if stage === 'exercise' || stage === 'practice'}
+						{@const excellent = quality !== null && quality > 80}
+						<div
+							class="dark flex shrink-0 flex-col items-center gap-1 self-stretch"
+							data-testid="quality-score"
+							title={m.form_quality()}
+						>
+							<div class="relative w-1.5 flex-1 [container-type:size]" aria-hidden="true">
+								<Progress
+									value={quality ?? 0}
+									class="absolute top-1/2 left-1/2 w-[100cqh] -translate-x-1/2 -translate-y-1/2 -rotate-90 [&>[data-slot=progress-indicator]]:rounded-full"
+								/>
+							</div>
+							<Badge variant={excellent ? 'default' : 'secondary'}>
+								<span class="sr-only">{m.form_quality()}: </span>
+								{#if excellent}<Trophy data-icon="inline-start" aria-hidden="true" /><span
+										class="sr-only"
+									>
+										{m.excellent_form()},
+									</span>
+								{:else}<Gauge data-icon="inline-start" aria-hidden="true" />{/if}
+								{#if quality === null}<span aria-hidden="true">–</span><span class="sr-only">
+										{m.not_scored()}
+									</span>{:else}{quality}{/if}
+							</Badge>
+						</div>
+					{/if}
 				</div>
 			</div>
 		</div>
@@ -766,8 +815,8 @@
 	}
 	.telemetry {
 		display: flex;
-		flex-direction: column;
-		justify-content: center;
+		align-items: center;
+		justify-content: space-between;
 		gap: 0.6rem;
 	}
 	.telemetry .digits {

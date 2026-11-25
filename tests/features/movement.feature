@@ -1,5 +1,15 @@
 Feature: Credit only observed, prescribed movement
 
+  Scenario: Excellent plank form is highlighted live and in the summary
+    Given my circuit prescribes 5 seconds of "plank"
+    When I start the workout after practice
+    Then the form quality indicator includes "Not scored"
+    When I hold "plank" for 2 seconds
+    Then the form quality indicator includes "Excellent form"
+    When 5 seconds pass
+    Then I see the summary with 1 result
+    And the form quality indicator includes "Excellent form"
+
   Scenario Outline: Reduced-motion guidance leaves the live counter unobstructed
     Given my screen is <width> by <height> and I prefer reduced motion
     And my circuit prescribes 3 reps of "squat"
