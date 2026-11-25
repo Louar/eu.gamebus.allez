@@ -3,6 +3,10 @@
 	import { version } from '$app/env';
 	import * as m from '#lib/paraglide/messages.js';
 	import { Button } from '#lib/components/ui/button/index.js';
+	import * as Alert from '#lib/components/ui/alert/index.js';
+	import { Progress } from '#lib/components/ui/progress/index.js';
+	import { Spinner } from '#lib/components/ui/spinner/index.js';
+	import { CircleAlert, CircleCheck, Download, RotateCcw } from '@lucide/svelte';
 	import { workerRequest, type Model, type OfflineStatus } from './offline';
 	let { model }: { model: Model } = $props();
 	let mounted = $state(false);
@@ -81,23 +85,46 @@
 
 <div class="flex flex-col gap-2" data-testid="offline-status" aria-live="polite">
 	{#if busy}
-		<p>{m.offline_progress({ done: progress.done, total: progress.total })}</p>
-		<progress value={progress.done} max={progress.total || 1} aria-label={m.offline_prepare()}
-		></progress>
+		<Alert.Root role="status">
+			<Spinner aria-hidden="true" />
+			<Alert.Title>
+				{m.offline_progress({ done: progress.done, total: progress.total })}
+			</Alert.Title>
+			<Alert.Description class="col-start-2 min-w-0 pt-2">
+				<Progress
+					value={progress.total ? progress.done : null}
+					max={progress.total || 1}
+					aria-label={m.offline_prepare()}
+				/>
+			</Alert.Description>
+		</Alert.Root>
 	{:else if status.ready && status.version === version}
-		<p>{m.offline_ready({ model: modelName(model) })}</p>
+		<Alert.Root role="status">
+			<CircleCheck aria-hidden="true" />
+			<Alert.Title>{m.offline_ready({ model: modelName(model) })}</Alert.Title>
+		</Alert.Root>
 	{:else}
-		<p>
-			{failure === 'storage'
-				? m.offline_storage()
-				: failure
-					? m.offline_failed()
-					: m.offline_incomplete()}
-		</p>
-		{#if offline}<p>{m.offline_unavailable({ model: modelName(model) })}</p>{/if}
-		{#if status.available.length}<p>
-				{m.offline_available({ models: status.available.map(modelName).join(', ') })}
-			</p>{:else if offline}<p>{m.offline_none()}</p>{/if}
-		<Button variant="outline" onclick={prepare}>{failure ? m.retry() : m.offline_prepare()}</Button>
+		<Alert.Root role="status" variant={failure ? 'destructive' : 'default'}>
+			{#if failure}<CircleAlert aria-hidden="true" />{:else}<Download aria-hidden="true" />{/if}
+			<Alert.Description class="col-start-2 min-w-0">
+				<p>
+					{failure === 'storage'
+						? m.offline_storage()
+						: failure
+							? m.offline_failed()
+							: m.offline_incomplete()}
+				</p>
+				{#if offline}<p>{m.offline_unavailable({ model: modelName(model) })}</p>{/if}
+				{#if status.available.length}<p>
+						{m.offline_available({ models: status.available.map(modelName).join(', ') })}
+					</p>{:else if offline}<p>{m.offline_none()}</p>{/if}
+			</Alert.Description>
+		</Alert.Root>
+		<Button variant="outline" onclick={prepare}>
+			{#if failure}<RotateCcw data-icon="inline-start" />{:else}<Download
+					data-icon="inline-start"
+				/>{/if}
+			{failure ? m.retry() : m.offline_prepare()}
+		</Button>
 	{/if}
 </div>

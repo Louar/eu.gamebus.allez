@@ -19,6 +19,28 @@ Feature: Prepared workouts work without a network connection
       | mediapipe |
       | movenet   |
 
+  Scenario Outline: Changing the selected provider preserves readiness across reloads
+    Given a fresh PWA visitor using "<initial>"
+    When I change the selected provider to "<model>"
+    And I prepare the selected provider for offline use
+    Then the selected provider remains ready after online and offline reloads
+
+    Examples:
+      | initial   | model     |
+      | mediapipe | movenet   |
+      | movenet   | mediapipe |
+
+  Scenario Outline: The production preview supports offline preparation
+    Given a fresh preview PWA visitor using "<model>"
+    When I prepare the selected provider for offline use
+    Then offline preparation reports complete assets and progress
+    And the selected provider remains ready after online and offline reloads
+
+    Examples:
+      | model     |
+      | mediapipe |
+      | movenet   |
+
   Scenario: An interrupted model download cannot advertise readiness
     Given a fresh PWA visitor using "movenet"
     When a model shard download is interrupted during preparation

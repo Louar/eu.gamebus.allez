@@ -4,6 +4,7 @@
 	import { dragHandleZone, dragHandle, type DndEvent } from 'svelte-dnd-action';
 	import { resolve } from '$app/paths';
 	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import LocalizedSelect from './LocalizedSelect.svelte';
 	import Offline from './Offline.svelte';
 	import { updateLocked } from './offline';
@@ -433,7 +434,13 @@
 						<Field.Label>{m.setup_model()}</Field.Label><LocalizedSelect
 							label={m.setup_model()}
 							value={model}
-							onchange={(v: 'mediapipe' | 'movenet') => (model = v)}
+							onchange={(v: 'mediapipe' | 'movenet') => {
+								model = v;
+								const url = new URL(location.href);
+								url.searchParams.set('model', v);
+								// eslint-disable-next-line svelte/no-navigation-without-resolve -- Current URL already includes the app base path.
+								void goto(url, { shallow: true, replace: true, state: page.state });
+							}}
 							options={[
 								{ value: 'mediapipe', label: m.setup_mp() },
 								{ value: 'movenet', label: m.setup_mn() }

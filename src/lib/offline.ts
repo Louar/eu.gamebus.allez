@@ -28,20 +28,33 @@ export async function workerRequest(
 ): Promise<OfflineStatus> {
 	if (type === 'PREPARE' && !navigator.serviceWorker?.controller) {
 		// Retry an initial shell installation that was interrupted or ran out of space.
-		await registerPwa();
+		const registration = await registerPwa();
 		await new Promise<void>((resolve, reject) => {
-			const controlled = () => {
-				if (!navigator.serviceWorker.controller) return;
+			const installing = registration.installing ?? registration.waiting ?? registration.active;
+			const cleanup = () => {
 				clearTimeout(timer);
 				navigator.serviceWorker.removeEventListener('controllerchange', controlled);
+				installing?.removeEventListener('statechange', changed);
+			};
+			const controlled = () => {
+				if (!navigator.serviceWorker.controller) return;
+				cleanup();
 				resolve();
 			};
+			const changed = () => {
+				if (navigator.serviceWorker.controller) return controlled();
+				if (!installing || installing.state === 'redundant') {
+					cleanup();
+					reject(new Error('installation'));
+				}
+			};
 			const timer = setTimeout(() => {
-				navigator.serviceWorker.removeEventListener('controllerchange', controlled);
+				cleanup();
 				reject(new Error('uncontrolled'));
 			}, 180_000);
 			navigator.serviceWorker.addEventListener('controllerchange', controlled);
-			controlled();
+			installing?.addEventListener('statechange', changed);
+			changed();
 		});
 	}
 	return new Promise((resolve, reject) => {

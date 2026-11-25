@@ -4,11 +4,11 @@ import { stat } from 'node:fs/promises';
 import { extname, resolve, sep } from 'node:path';
 
 // Pages serves the site's custom 404 document without changing the URL or status.
-const mount = `${process.env.BASE_PATH ?? '/allez.gamebus.eu'}/`;
 const testing = process.env.VITE_REPLAY === 'true';
+const mount = `${process.env.BASE_PATH ?? (testing ? '/allez.gamebus.eu' : '')}/`;
 const switching = testing && process.env.TEST_DEPLOYMENT_SWITCH === 'true';
 let nextRelease = false;
-const primaryRoot = resolve(testing ? 'build-replay' : 'build');
+const primaryRoot = resolve(process.env.BUILD_OUTPUT ?? (testing ? 'build-replay' : 'build'));
 const types = {
 	'.html': 'text/html; charset=utf-8',
 	'.js': 'text/javascript',

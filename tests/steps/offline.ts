@@ -61,12 +61,12 @@ async function controlled(page: Page) {
 }
 
 Given(
-	/^a fresh (update )?PWA visitor using "(mediapipe|movenet)"$/,
-	async ({ browser, page, baseURL, $testInfo }, update: string | undefined, model: Model) => {
+	/^a fresh (update |preview )?PWA visitor using "(mediapipe|movenet)"$/,
+	async ({ browser, page, baseURL, $testInfo }, server: string | undefined, model: Model) => {
 		$testInfo.setTimeout(180_000);
-		if (update) {
+		if (server) {
 			const url = new URL(baseURL!);
-			url.port = '4175';
+			url.port = server === 'preview ' ? '4176' : '4175';
 			baseURL = url.href;
 		}
 		// The existing global replay hooks prohibit model fetches. Keep this real browser separate.
@@ -198,6 +198,28 @@ When('storage capacity is restored and I retry', async ({ page }) => {
 		timeout: 120_000
 	});
 	state.replies = await message(state.page, 'PREPARE', state.model);
+});
+
+When('I change the selected provider to {string}', async ({ page }, model: Model) => {
+	const state = visitor(page);
+	await state.page.getByRole('combobox', { name: 'Model', exact: true }).click();
+	await state.page
+		.getByRole('option', { name: model === 'movenet' ? /MoveNet/ : /MediaPipe/ })
+		.click();
+	state.model = model;
+});
+
+Then('the selected provider remains ready after online and offline reloads', async ({ page }) => {
+	const state = visitor(page);
+	for (const offline of [false, true]) {
+		await state.context.setOffline(offline);
+		await state.page.reload();
+		await expect(state.page.getByRole('combobox', { name: 'Model', exact: true })).toContainText(
+			state.model === 'movenet' ? 'MoveNet' : 'MediaPipe'
+		);
+		await expect(state.page.getByTestId('offline-status')).toContainText('Ready offline');
+		expect((await message(state.page, 'STATUS', state.model)).at(-1)!.ready).toBe(true);
+	}
 });
 
 When('I prepare the selected provider for offline use', async ({ page }) => {
