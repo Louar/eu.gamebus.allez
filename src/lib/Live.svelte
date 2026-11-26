@@ -93,6 +93,7 @@
 		intervalCount = $state('');
 	const practiceOptions = $derived(exercises.map((value) => ({ value, label: name(value) })));
 	let pauseMenu = $state(false);
+	let embedded = $state(false);
 	let currentRound = $state(1),
 		currentStep = $state(1);
 	const roundGoal = untrack(() => {
@@ -103,6 +104,7 @@
 		!paused && (stage === 'practice' || stage === 'exercise') && signal?.status === 'lost'
 	);
 	onMount(() => {
+		embedded = window.parent !== window;
 		// Keep the results screen intact too; leaving Live is the update-safe point.
 		workoutBusy.set(true);
 		return () => workoutBusy.set(false);
@@ -463,7 +465,13 @@
 				</Card.Root>
 			{/each}
 		</div>
-		<Button onclick={onexit}>{m.back_setup()}</Button>
+		{#if embedded}
+			<Button onclick={() => window.parent.postMessage({ type: 'EXIT' }, '*')}>
+				{m.close_task()}
+			</Button>
+		{:else}
+			<Button onclick={onexit}>{m.back_setup()}</Button>
+		{/if}
 	{:else}
 		<div class="backdrop screen">
 			{@render preview()}

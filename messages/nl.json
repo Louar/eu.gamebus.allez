@@ -59,6 +59,7 @@
 	"resume": "Hervatten",
 	"finish": "Afronden",
 	"back_setup": "Terug naar instellingen",
+	"close_task": "Taak sluiten",
 	"paused": "Gepauzeerd",
 	"ready": "Maak je klaar",
 	"position": "Ronde {round} · Stap {step} van {total}",

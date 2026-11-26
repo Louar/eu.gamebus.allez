@@ -11,7 +11,7 @@ type Write = {
 };
 
 function seconds(value: number) {
-	return { value: Math.round(value), unit: 'SECONDS' };
+	return { value: Math.round(value), unit: 'seconds' };
 }
 
 function properties(snapshot: ActivitySnapshot, isCompleted: boolean): Property[] {

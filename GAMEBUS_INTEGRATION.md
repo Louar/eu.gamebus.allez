@@ -81,7 +81,7 @@ Each key below is a GameBus property-template slug. Its schema validates the `ob
 				"type": "object",
 				"properties": {
 					"value": { "type": "integer", "minimum": 0 },
-					"unit": { "const": "SECONDS" }
+					"unit": { "const": "seconds" }
 				},
 				"required": ["value", "unit"],
 				"additionalProperties": false

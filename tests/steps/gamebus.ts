@@ -176,7 +176,7 @@ Then('GameBus receives an incomplete activity with no steps', async ({ page }) =
 			{ template: 'isCompleted', obj: { value: false } },
 			{ template: 'workoutRounds', obj: { value: 0 } },
 			{ template: 'workoutQuality', obj: { value: 0 } },
-			{ template: 'duration', obj: { value: 0, unit: 'SECONDS' } }
+			{ template: 'duration', obj: { value: 0, unit: 'seconds' } }
 		])
 	);
 });
@@ -227,7 +227,7 @@ Then('GameBus receives each completed step on the acknowledged activity', async 
 			round: 1,
 			step: i + 1,
 			exercise: expected.exercise,
-			duration: { value: expected.duration, unit: 'SECONDS' }
+			duration: { value: expected.duration, unit: 'seconds' }
 		});
 	}
 });
@@ -250,7 +250,7 @@ Then('the final activity marks the round and workout complete', async ({ page })
 	expect(final.data.properties).toContainEqual({ template: 'workoutRounds', obj: { value: 1 } });
 	expect(final.data.properties).toContainEqual({
 		template: 'duration',
-		obj: { value: 20, unit: 'SECONDS' }
+		obj: { value: 20, unit: 'seconds' }
 	});
 	// Timed exercises without tracked movement have no quality samples.
 	expect(final.data.properties).toContainEqual({ template: 'workoutQuality', obj: { value: 0 } });

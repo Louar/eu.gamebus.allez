@@ -59,6 +59,7 @@
 	"resume": "Resume",
 	"finish": "Finish",
 	"back_setup": "Back to setup",
+	"close_task": "Close task",
 	"paused": "Paused",
 	"ready": "Get ready",
 	"position": "Round {round} · Step {step} of {total}",

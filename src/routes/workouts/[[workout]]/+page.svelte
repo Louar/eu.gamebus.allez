@@ -24,6 +24,7 @@
 		invalid = $state(false);
 	let model = $state<'mediapipe' | 'movenet'>('mediapipe');
 	let cameraId = $state('');
+	let embedded = $state(false);
 	const embed = getEmbed();
 	let unsubscribe: (() => void) | undefined;
 	onDestroy(() => unsubscribe?.());
@@ -42,6 +43,7 @@
 	);
 
 	afterNavigate(({ type, from }) => {
+		embedded = window.parent !== window;
 		unsubscribe?.();
 		document.documentElement.lang = getLocale();
 		sound = page.url.searchParams.get('sound') !== '0';
@@ -143,14 +145,16 @@
 				</Card.Content>
 				<Card.Footer class="flex w-full  flex-col gap-3">
 					<div class="flex w-full flex-wrap justify-between gap-3 md:flex-nowrap">
-						<Button
-							size="lg"
-							class="w-full md:w-fit"
-							variant="outline"
-							href={resolve(`/${plannerQuery}`)}
-						>
-							<ArrowLeft data-icon="inline-start" />{m.back_setup()}
-						</Button>
+						{#if !embedded}
+							<Button
+								size="lg"
+								class="w-full md:w-fit"
+								variant="outline"
+								href={resolve(`/${plannerQuery}`)}
+							>
+								<ArrowLeft data-icon="inline-start" />{m.back_setup()}
+							</Button>
+						{/if}
 						{#if workout}
 							<Button
 								size="lg"
