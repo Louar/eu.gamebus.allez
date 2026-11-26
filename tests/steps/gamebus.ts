@@ -22,7 +22,7 @@ const stepsOf = (write: Write) =>
 	write.data.properties.filter((p) => p.template === 'workoutStep').map((p) => p.obj);
 const generated = new WeakMap<Page, string[]>();
 
-async function launch(page: Page, baseURL: string, task: boolean) {
+async function launch(page: Page, baseURL: string, mode: 'page' | 'explicit' | 'random' | 'null') {
 	const url = new URL(baseURL);
 	url.searchParams.set(
 		'workout',
@@ -39,7 +39,7 @@ async function launch(page: Page, baseURL: string, task: boolean) {
 	await page.goto(host.href);
 	await page.setContent('<!doctype html><title>GameBus host</title>');
 	await page.evaluate(
-		({ src, task, settings }) => {
+		({ src, mode, settings, timed }) => {
 			const host = window as Host;
 			host.writes = [];
 			const child = document.createElement('iframe');
@@ -52,22 +52,29 @@ async function launch(page: Page, baseURL: string, task: boolean) {
 					if (source !== child.contentWindow || sender !== origin) return;
 					if (data.type === 'IFRAME_READY') {
 						host.ready = true;
-						if (task)
+						if (mode !== 'page')
 							child.contentWindow!.postMessage(
 								{
 									type: 'TASK',
 									data: {
 										id: 'exercise',
 										type: 'userTriggeredEmbedded',
+										configuration:
+											mode === 'null'
+												? null
+												: {
+														workoutDefinition: mode === 'explicit' ? timed : { steps: 3, rounds: 2 }
+													},
 										activityTemplates: [{ slug: 'executeHomeWorkout', name: 'Workout' }]
 									}
 								},
 								origin
 							);
-						child.contentWindow!.postMessage(
-							{ type: 'INPUT_COLLECTIONS', data: { allez: { settings } } },
-							origin
-						);
+						if (mode !== 'random')
+							child.contentWindow!.postMessage(
+								{ type: 'INPUT_COLLECTIONS', data: { allez: { settings } } },
+								origin
+							);
 					} else if (['ACTIVITY', 'SILENT_ACTIVITY'].includes(data.type)) host.writes.push(data);
 				}
 			);
@@ -76,10 +83,9 @@ async function launch(page: Page, baseURL: string, task: boolean) {
 		},
 		{
 			src: url.href,
-			task,
-			settings: task
-				? { workout: timed }
-				: { steps: 3, rounds: 2, rest: 0, model: 'movenet', sound: false }
+			mode,
+			timed,
+			settings: { steps: 3, rounds: 2, rest: 0, model: 'movenet', sound: false }
 		}
 	);
 	await expect.poll(() => page.evaluate(() => (window as Host).ready)).toBe(true);
@@ -87,12 +93,20 @@ async function launch(page: Page, baseURL: string, task: boolean) {
 
 Given(
 	'a GameBus page opens a conflicting Allez link with random workout settings',
-	async ({ page, baseURL }) => launch(page, baseURL!, false)
+	async ({ page, baseURL }) => launch(page, baseURL!, 'page')
+);
+Given(
+	'a GameBus task supplies a random workout definition without input collections',
+	async ({ page, baseURL }) => launch(page, baseURL!, 'random')
+);
+Given(
+	'a GameBus task has null configuration and supplies collection settings',
+	async ({ page, baseURL }) => launch(page, baseURL!, 'null')
 );
 Given(
 	'a GameBus task opens a conflicting Allez link with two timed exercises',
 	async ({ page, baseURL }) => {
-		await launch(page, baseURL!, true);
+		await launch(page, baseURL!, 'explicit');
 		await expect(embed(page).locator('li[data-row]')).toHaveCount(2);
 	}
 );
@@ -214,6 +228,11 @@ Then('the final activity marks the round and workout complete', async ({ page })
 		.poll(async () => (await writes(page)).at(-1)!.data.properties)
 		.toContainEqual({ template: 'isCompleted', obj: { value: true } });
 	const all = await writes(page);
+	for (const write of all) {
+		expect(write.data.properties.filter((p) => p.template === 'workoutDefinition')).toEqual([
+			{ template: 'workoutDefinition', obj: timed }
+		]);
+	}
 	const final = all.at(-1)!;
 	expect(final.data.id).toBe(activityId);
 	expect(stepsOf(final)).toEqual(stepsOf(stepUpdate));

@@ -1,4 +1,5 @@
 import type { ActivitySnapshot } from './lifecycle.js';
+import { parseWorkout } from './workout.js';
 
 type Property = { template: string; obj: unknown };
 type Run = { start: string; id?: string; failed?: boolean };
@@ -17,6 +18,7 @@ function properties(snapshot: ActivitySnapshot, isCompleted: boolean): Property[
 	const results = snapshot.results.filter((result) => !result.partial);
 	const qualities = results.flatMap(({ quality }) => (quality === null ? [] : [quality]));
 	return [
+		{ template: 'workoutDefinition', obj: snapshot.workout },
 		{ template: 'duration', obj: seconds(snapshot.elapsed) },
 		{ template: 'workoutRounds', obj: { value: snapshot.completedRounds } },
 		{ template: 'isCompleted', obj: { value: isCompleted } },
@@ -56,6 +58,8 @@ export function connectGameBus(
 	const parent = window.parent;
 	const embedded = parent !== window;
 	let origin: string | undefined;
+	let collectionSettings: Record<string, unknown> = {};
+	let taskWorkout: ReturnType<typeof parseWorkout> | false | undefined;
 	let current: Run | undefined;
 	let queue: Write[] = [];
 	let pending: { write: Write; requestId: string; timer: number } | undefined;
@@ -104,8 +108,26 @@ export function connectGameBus(
 			origin ??= event.origin;
 			if (message.type === 'INPUT_COLLECTIONS') {
 				const settings = record(data.allez) ? data.allez.settings : undefined;
-				onVariables(record(settings) ? settings : {});
+				collectionSettings = record(settings) ? settings : {};
+			} else {
+				const definition = record(data.configuration) ? data.configuration.workoutDefinition : null;
+				try {
+					// Resolve a random task only once, not again when collections arrive.
+					taskWorkout = definition == null ? undefined : parseWorkout(definition);
+				} catch {
+					// A supplied but invalid definition uses the planner's existing invalid-workout UI.
+					taskWorkout = false;
+				}
 			}
+			onVariables(
+				taskWorkout === undefined
+					? collectionSettings
+					: {
+							workout: taskWorkout,
+							model: collectionSettings.model,
+							sound: collectionSettings.sound
+						}
+			);
 			flush();
 			return;
 		}

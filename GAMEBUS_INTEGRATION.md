@@ -2,7 +2,24 @@
 
 Use the Allez root URL as an external page or embedded task. Allow the Allez origin to submit `executeHomeWorkout` and, for a task, associate that template with the task. Cross-origin camera practice requires HTTPS, an iframe with `allow="camera"`, and a parent Permissions Policy that permits that delegation. Allez cannot grant itself camera access.
 
-After `IFRAME_READY`, GameBus can supply the `settings` item in the `allez` input collection. Example `INPUT_COLLECTIONS` message:
+## Configure a task
+
+After `IFRAME_READY`, an embedded task can supply the circuit directly in `TASK.data.configuration.workoutDefinition`. No input collection is required. For example, this task selects three distinct exercises once and repeats that circuit twice:
+
+```json
+{
+	"type": "TASK",
+	"data": {
+		"configuration": { "workoutDefinition": { "steps": 3, "rounds": 2, "rest": 5 } }
+	}
+}
+```
+
+For an explicit circuit, use an array instead of a step count, for example `{ "v": 1, "steps": [{ "exercise": "squat", "reps": 8 }], "repeat": { "rounds": 2 } }`. Explicit circuits specify their target under `repeat`; random recipes use top-level `rounds`. See the [workoutDefinition JSON Schema](workoutDefinition.schema.json) for all variants and limits.
+
+## Configure a page or supply fallback settings
+
+Pages do not receive `TASK`. For a page, or a task whose configuration or workout definition is missing or null, Allez uses the `settings` item in the `allez` input collection, then falls back to the URL and built-in defaults. When a task supplies a definition, it overrides the entire collection or URL circuit regardless of message order. Collection settings can still supply `model` and `sound`. Example `INPUT_COLLECTIONS` message:
 
 ```json
 {
@@ -22,6 +39,8 @@ Selecting **Start workout** in practice sends one `SILENT_ACTIVITY` create. Each
 Reporting requires GameBus's correlated `ACTIVITY_RESULT` contract. Allez waits for the committed ID before sending updates and stops reporting that run on a rejected or timed-out write rather than creating a duplicate. Standalone workouts do not send activities.
 
 ## Activity property schemas
+
+Every create and full-replacement update includes one `workoutDefinition` property. Its `obj` is the explicit v1 workout used by the session, including the chosen exercises when the task requested a random workout. It has no `value` wrapper. The same [JSON Schema](workoutDefinition.schema.json) applies to the task input and the activity property.
 
 Each key below is a GameBus property-template slug. Its schema validates the `obj` field, not the surrounding `{ "template", "obj" }` message entry. Only `workoutStep` allows multiple entries. `duration` remains unchanged.
 

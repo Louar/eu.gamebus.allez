@@ -1,0 +1,150 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"title": "Allez Workout",
+	"oneOf": [{ "$ref": "#/$defs/explicitWorkout" }, { "$ref": "#/$defs/randomWorkout" }],
+	"$defs": {
+		"positiveInteger": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+		"nonNegativeInteger": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+		"exercise": {
+			"type": "string",
+			"enum": [
+				"push-up",
+				"squat",
+				"jumping-jack",
+				"front-jack",
+				"sit-up",
+				"squat-hold",
+				"burpee",
+				"plank"
+			]
+		},
+		"repetitionStep": {
+			"type": "object",
+			"properties": {
+				"exercise": {
+					"type": "string",
+					"enum": ["push-up", "squat", "jumping-jack", "front-jack", "sit-up", "burpee"]
+				},
+				"reps": {
+					"$ref": "#/$defs/positiveInteger",
+					"description": "Target number of repetitions."
+				}
+			},
+			"required": ["exercise", "reps"],
+			"additionalProperties": false
+		},
+		"holdStep": {
+			"type": "object",
+			"properties": {
+				"exercise": { "type": "string", "enum": ["plank", "squat-hold"] },
+				"hold": {
+					"$ref": "#/$defs/positiveInteger",
+					"description": "Target continuous hold time in seconds."
+				}
+			},
+			"required": ["exercise", "hold"],
+			"additionalProperties": false
+		},
+		"timedStep": {
+			"type": "object",
+			"properties": {
+				"exercise": { "$ref": "#/$defs/exercise" },
+				"duration": {
+					"$ref": "#/$defs/positiveInteger",
+					"description": "Exercise interval in seconds, regardless of repetitions or hold continuity."
+				}
+			},
+			"required": ["exercise", "duration"],
+			"additionalProperties": false
+		},
+		"restStep": {
+			"type": "object",
+			"properties": {
+				"rest": {
+					"$ref": "#/$defs/positiveInteger",
+					"description": "Explicit rest interval in seconds."
+				}
+			},
+			"required": ["rest"],
+			"additionalProperties": false
+		},
+		"exerciseStep": {
+			"oneOf": [
+				{ "$ref": "#/$defs/repetitionStep" },
+				{ "$ref": "#/$defs/holdStep" },
+				{ "$ref": "#/$defs/timedStep" }
+			]
+		},
+		"step": { "oneOf": [{ "$ref": "#/$defs/exerciseStep" }, { "$ref": "#/$defs/restStep" }] },
+		"repeat": {
+			"description": "Repeat the circuit for a total number of rounds or until the total active session duration is reached. Active duration includes rest but excludes pauses.",
+			"oneOf": [
+				{
+					"type": "object",
+					"properties": {
+						"rounds": {
+							"$ref": "#/$defs/positiveInteger",
+							"description": "Total number of rounds, including the first."
+						}
+					},
+					"required": ["rounds"],
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"properties": {
+						"duration": {
+							"$ref": "#/$defs/positiveInteger",
+							"description": "Total active session duration in seconds."
+						}
+					},
+					"required": ["duration"],
+					"additionalProperties": false
+				}
+			]
+		},
+		"explicitWorkout": {
+			"type": "object",
+			"properties": {
+				"v": { "const": 1, "description": "Workout format version." },
+				"rest": {
+					"$ref": "#/$defs/nonNegativeInteger",
+					"description": "Automatic rest in seconds between adjacent exercise steps, including across rounds. Omit or use zero to disable."
+				},
+				"steps": {
+					"type": "array",
+					"minItems": 1,
+					"items": { "$ref": "#/$defs/step" },
+					"contains": { "$ref": "#/$defs/exerciseStep" },
+					"minContains": 1,
+					"description": "Ordered workout steps. At least one exercise is required."
+				},
+				"repeat": { "$ref": "#/$defs/repeat", "description": "Omit to perform the steps once." }
+			},
+			"required": ["v", "steps"],
+			"additionalProperties": false
+		},
+		"randomWorkout": {
+			"type": "object",
+			"properties": {
+				"v": { "const": 1, "description": "Optional workout format version." },
+				"steps": {
+					"type": "integer",
+					"minimum": 1,
+					"maximum": 8,
+					"description": "Number of distinct exercises randomly selected from the catalog."
+				},
+				"rounds": {
+					"$ref": "#/$defs/positiveInteger",
+					"description": "Total number of rounds using the same selected exercises."
+				},
+				"rest": {
+					"$ref": "#/$defs/nonNegativeInteger",
+					"description": "Automatic rest between exercises in seconds. Defaults to zero when omitted."
+				}
+			},
+			"required": ["steps", "rounds"],
+			"additionalProperties": false
+		}
+	}
+}
