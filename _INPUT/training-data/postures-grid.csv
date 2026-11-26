@@ -1,9 +1,0 @@
-﻿id,name,description,categories,nrOfStates
-push-up,Push up,,"BEP,fitness",2
-squat,Squat,,"fitness,BEP",2
-jumping-jack,Jumping jack,,"fitness,yoga,BEP",2
-front-jack,Front jack,,fitness,2
-sit-up,Sit up,,fitness,2
-squat-hold,Squat hold,,fitness,1
-burpee,Burpee,,"fitness,yoga",5
-plank,Plank,,"fitness,BEP",1
