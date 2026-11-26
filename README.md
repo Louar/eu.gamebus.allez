@@ -1,6 +1,6 @@
 # Alez
 
-A single-person workout studio that runs on-device. Edit the example circuit, select a landmark model, then choose **Start workout** to open practice and enable the camera. Shared workout links first show a preview with **Enable camera**. A three-second countdown separates practice from the workout. Switch between English and Dutch in setup. Nothing is recorded or uploaded; finishing a session releases the camera and keeps its summary in memory.
+A single-person workout studio that runs on-device. Edit the example circuit, select a landmark model, then choose **Start workout** to open practice and enable the camera. Shared workout links first show a preview with **Enable camera**. A three-second countdown separates practice from the workout. Switch between English and Dutch in setup. Video and poses stay on the device. Standalone summaries stay in memory; when embedded in GameBus, Allez reports workout activity and completed exercises. See [GameBus integration](GAMEBUS_INTEGRATION.md) for host settings and camera requirements.
 
 ## Run locally
 

@@ -1,3 +1,4 @@
+import { randomWorkout } from './minimal-workout.ts';
 import {
 	exercises,
 	Tracker,
@@ -47,6 +48,13 @@ function integer(x: unknown, min = 1): number {
 }
 
 export function parseWorkout(raw: unknown): Workout {
+	if (
+		record(raw, ['v', 'steps', 'rounds', 'rest']) &&
+		typeof raw.steps === 'number' &&
+		(!('v' in raw) || raw.v === 1)
+	) {
+		return randomWorkout(raw.steps, integer(raw.rounds), 'rest' in raw ? integer(raw.rest, 0) : 0);
+	}
 	if (!record(raw, ['v', 'rest', 'steps', 'repeat']) || raw.v !== 1 || !Array.isArray(raw.steps))
 		invalid();
 	const steps = Array.from(raw.steps, (s: unknown): Step => {
@@ -145,7 +153,9 @@ export class Session {
 	private tracked = 0;
 	private seenAt: number | null = null;
 
-	constructor(workout: Workout) {
+	private readonly onExerciseComplete?: () => void;
+	constructor(workout: Workout, onExerciseComplete?: () => void) {
+		this.onExerciseComplete = onExerciseComplete;
 		this.workout = parseWorkout(workout);
 		this.step = this.workout.steps[0];
 	}
@@ -218,8 +228,10 @@ export class Session {
 		if (this.automaticRest) {
 			this.automaticRest = false;
 		} else {
-			if (this.stepIndex + 1 === steps.length) {
-				this.completedRounds++;
+			const last = this.stepIndex + 1 === steps.length;
+			if (last) this.completedRounds++;
+			if ('exercise' in this.step) this.onExerciseComplete?.();
+			if (last) {
 				if (
 					!repeat ||
 					('rounds' in repeat && this.round >= repeat.rounds) ||

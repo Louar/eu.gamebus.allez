@@ -9,6 +9,7 @@
 	import { Badge } from '#lib/components/ui/badge/index.js';
 	import { Progress } from '#lib/components/ui/progress/index.js';
 	import { Session, type Workout } from './workout';
+	import { activitySnapshot, type ActivityListener } from './lifecycle';
 	import {
 		Tracker,
 		exercises,
@@ -40,7 +41,8 @@
 		cameraId = $bindable(''),
 		onmodelchange,
 		sound = $bindable(),
-		onexit
+		onexit,
+		onactivity
 	}: {
 		workout: Workout;
 		model: 'mediapipe' | 'movenet';
@@ -48,8 +50,15 @@
 		onmodelchange: (model: 'mediapipe' | 'movenet') => void;
 		sound: boolean;
 		onexit: () => void;
+		onactivity?: ActivityListener;
 	} = $props();
-	const session = new Session(untrack(() => workout));
+	const session = new Session(
+		untrack(() => workout),
+		() => activity('step')
+	);
+	function activity(event: Parameters<ActivityListener>[0]) {
+		onactivity?.(event, activitySnapshot(session));
+	}
 	let practice = $state<ExerciseId>(
 		untrack(() => workout.steps.find((s) => 'exercise' in s)!.exercise)
 	);
@@ -135,13 +144,17 @@
 		quality = null;
 		hold = 0;
 	}
+	function showSummary() {
+		if (stage === 'summary') return;
+		const started = stage !== 'practice';
+		stage = 'summary';
+		source?.close();
+		if (started) activity('finish');
+	}
 	function snapshot() {
 		if (session.state === 'finished') {
-			if (stage !== 'summary') {
-				source?.close();
-				beep(840);
-			}
-			stage = 'summary';
+			if (stage !== 'summary') beep(840);
+			showSummary();
 			return;
 		}
 		if (session.state === 'ready') return;
@@ -264,17 +277,18 @@
 		if (open && !paused) toggle();
 	}
 	function start() {
+		if (stage !== 'practice') return;
 		paused = false;
 		clearMotion();
 		deadline = now() + 3;
 		countdown = 3;
 		stage = 'countdown';
+		activity('start');
 		beep(440);
 	}
 	function finish() {
 		session.finish(now());
-		source?.close();
-		stage = 'summary';
+		showSummary();
 	}
 	async function connect(selectedModel = model, selectedCamera = cameraId) {
 		source?.close();
@@ -657,7 +671,7 @@
 							data-testid="quality-score"
 							title={m.form_quality()}
 						>
-							<div class="relative w-1.5 flex-1 [container-type:size]" aria-hidden="true">
+							<div class="[container-type:size] relative w-1.5 flex-1" aria-hidden="true">
 								<Progress
 									value={quality ?? 0}
 									class="absolute top-1/2 left-1/2 w-[100cqh] -translate-x-1/2 -translate-y-1/2 -rotate-90 [&>[data-slot=progress-indicator]]:rounded-full"

@@ -2,7 +2,8 @@
 	import * as m from '#lib/paraglide/messages.js';
 	import { getLocale, setLocale } from '#lib/paraglide/runtime.js';
 	import Setup from '#lib/Setup.svelte';
-	import { decodeWorkout, example, type Workout } from '#lib/workout.js';
+	import { example, type Workout } from '#lib/workout.js';
+	import { getEmbed, launchSettings } from '#lib/embed.js';
 	import { onMount } from 'svelte';
 	import * as ToggleGroup from '#lib/components/ui/toggle-group/index.js';
 	import * as Card from '#lib/components/ui/card/index.js';
@@ -12,21 +13,18 @@
 	let model = $state<'mediapipe' | 'movenet'>('mediapipe'),
 		sound = $state(true);
 	let locale = $state<'nl' | 'en'>('en');
+	const { settings } = getEmbed();
 	onMount(() => {
 		locale = getLocale();
 		document.documentElement.lang = locale;
 		const params = new URL(location.href).searchParams;
-		model = params.get('model') === 'movenet' ? 'movenet' : 'mediapipe';
-		sound = params.get('sound') !== '0';
-		const encoded = params.get('workout');
-		if (encoded !== null) {
-			try {
-				workout = decodeWorkout(encoded);
-			} catch {
-				error = true;
-			}
-		}
-		ready = true;
+		return settings.subscribe((host) => {
+			const launch = launchSettings(params, params.get('workout'), host);
+			workout = launch.workout;
+			({ model, sound } = launch.planner);
+			error = launch.error;
+			ready = true;
+		});
 	});
 </script>
 

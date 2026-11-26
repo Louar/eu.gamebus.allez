@@ -121,7 +121,7 @@
 	"setup_mn": "MoveNet SinglePose Thunder",
 	"setup_sound": "Geluidssignalen",
 	"setup_privacy_title": "Privé trainen",
-	"setup_privacy": "Je video blijft op dit apparaat. De camera gaat pas aan bij het oefenen.",
+	"setup_privacy": "Je video blijft op dit apparaat. De camera gaat pas aan bij het oefenen. Start je een training in GameBus, dan worden je trainingsresultaten gedeeld met GameBus.",
 	"setup_bad_number": "Vul een geheel getal van minimaal {n} in.",
 	"setup_too_long": "Dit circuit is te lang voor een trainingslink. Verwijder enkele stappen en probeer het opnieuw.",
 	"setup_invalid": "Controleer het circuit: voeg een oefening toe en vul bij elke stap een geldig doel in.",

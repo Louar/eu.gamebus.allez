@@ -3,12 +3,14 @@
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as Card from '#lib/components/ui/card/index.js';
 	import Live from '#lib/Live.svelte';
+	import { getEmbed, launchSettings } from '#lib/embed.js';
+	import { onDestroy } from 'svelte';
 	import { randomWorkout } from '#lib/minimal-workout.js';
 	import { updateLocked } from '#lib/offline.js';
 	import * as m from '#lib/paraglide/messages.js';
 	import { getLocale } from '#lib/paraglide/runtime.js';
 	import { name, reps } from '#lib/words.js';
-	import { decodeWorkout, encodeWorkout, type Workout } from '#lib/workout.js';
+	import { encodeWorkout, type Workout } from '#lib/workout.js';
 	import WorkoutSettings from '#lib/WorkoutSettings.svelte';
 	import { afterNavigate, goto, replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -22,6 +24,9 @@
 		invalid = $state(false);
 	let model = $state<'mediapipe' | 'movenet'>('mediapipe');
 	let cameraId = $state('');
+	const embed = getEmbed();
+	let unsubscribe: (() => void) | undefined;
+	onDestroy(() => unsubscribe?.());
 	function changeModel(value: 'mediapipe' | 'movenet') {
 		model = value;
 		const url = new URL(page.url.href);
@@ -37,6 +42,7 @@
 	);
 
 	afterNavigate(({ type, from }) => {
+		unsubscribe?.();
 		document.documentElement.lang = getLocale();
 		sound = page.url.searchParams.get('sound') !== '0';
 		model = page.url.searchParams.get('model') === 'movenet' ? 'movenet' : 'mediapipe';
@@ -49,14 +55,19 @@
 			void goto(resolve(`workouts/${generated}/${page.url.search}`), { replace: true });
 			return;
 		}
-		try {
-			workout = decodeWorkout(encoded);
-			// Only Start workout navigates programmatically from the planner. Pasted
-			// links, history traversal and reloads always require Enable camera.
-			entered = !$updateLocked && type === 'goto' && from?.route.id === '/';
-		} catch {
-			invalid = true;
-		}
+		const fromPlanner = type === 'goto' && from?.route.id === '/';
+		const configure = (host: Record<string, unknown>) => {
+			if (entered) return;
+			const launch = launchSettings(page.url.searchParams, encoded, host);
+			invalid = launch.error;
+			workout = invalid ? null : launch.workout;
+			({ model, sound } = launch.planner);
+		};
+		// Planner navigation already carries its compiled (and possibly edited) circuit.
+		if (fromPlanner) {
+			configure({});
+			entered = !$updateLocked && !invalid;
+		} else unsubscribe = embed.settings.subscribe(configure);
 	});
 </script>
 
@@ -70,6 +81,7 @@
 			<Live
 				{workout}
 				{model}
+				onactivity={embed.onactivity}
 				bind:cameraId
 				onmodelchange={changeModel}
 				bind:sound

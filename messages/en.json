@@ -121,7 +121,7 @@
 	"setup_mn": "MoveNet SinglePose Thunder",
 	"setup_sound": "Sound cues",
 	"setup_privacy_title": "Private by design",
-	"setup_privacy": "Your video stays on this device. Camera access starts in practice, not here.",
+	"setup_privacy": "Your video stays on this device. Camera access starts in practice, not here. When you start a workout in GameBus, your workout results are shared with GameBus.",
 	"setup_bad_number": "Enter a whole number of {n} or more.",
 	"setup_too_long": "This circuit is too long for a workout link. Remove a few steps and try again.",
 	"setup_invalid": "Check the circuit: include an exercise and enter a valid target for every step.",
