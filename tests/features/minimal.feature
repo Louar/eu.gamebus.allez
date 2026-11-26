@@ -19,6 +19,9 @@ Feature: Portable minimal workout paths on a static Pages site
     When I reload the shared workout path
     Then the generated circuit remains available for practice
 
+  Scenario: The bare workout path draws exercises rather than using the fixed planner circuit
+    Then different random draws at the bare workout path produce different exercise lists
+
   Scenario: A malformed prescription does not silently start a random workout
     Given I visit a minimal workout path with invalid encoding
     Then I can return from the link error to the minimal planner

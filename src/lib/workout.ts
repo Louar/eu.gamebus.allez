@@ -1,4 +1,4 @@
-import { randomWorkout } from './minimal-workout.ts';
+import { randomWorkout, workoutDefaults } from './minimal-workout.ts';
 import {
 	exercises,
 	Tracker,
@@ -20,15 +20,13 @@ export type Workout = {
 
 export const example: Workout = {
 	v: 1,
-	rest: 5,
+	rest: workoutDefaults.rest,
 	steps: [
 		{ exercise: 'squat', reps: 5 },
 		{ exercise: 'plank', hold: 15 },
-		{ rest: 10 },
-		{ exercise: 'jumping-jack', duration: 15 },
-		{ exercise: 'push-up', reps: 5 }
+		{ exercise: 'jumping-jack', duration: 15 }
 	],
-	repeat: { rounds: 3 }
+	repeat: { rounds: workoutDefaults.rounds }
 };
 
 const maxEncodedLength = 16_384;
@@ -50,10 +48,14 @@ function integer(x: unknown, min = 1): number {
 export function parseWorkout(raw: unknown): Workout {
 	if (
 		record(raw, ['v', 'steps', 'rounds', 'rest']) &&
-		typeof raw.steps === 'number' &&
+		!Array.isArray(raw.steps) &&
 		(!('v' in raw) || raw.v === 1)
 	) {
-		return randomWorkout(raw.steps, integer(raw.rounds), 'rest' in raw ? integer(raw.rest, 0) : 0);
+		return randomWorkout(
+			'steps' in raw ? integer(raw.steps) : undefined,
+			'rounds' in raw ? integer(raw.rounds) : undefined,
+			'rest' in raw ? integer(raw.rest, 0) : undefined
+		);
 	}
 	if (!record(raw, ['v', 'rest', 'steps', 'repeat']) || raw.v !== 1 || !Array.isArray(raw.steps))
 		invalid();
@@ -75,7 +77,7 @@ export function parseWorkout(raw: unknown): Workout {
 	if (!steps.some((s) => 'exercise' in s)) invalid();
 	const workout: Workout = {
 		v: 1,
-		...('rest' in raw ? { rest: integer(raw.rest, 0) } : {}),
+		rest: 'rest' in raw ? integer(raw.rest, 0) : workoutDefaults.rest,
 		steps
 	};
 	if ('repeat' in raw) {

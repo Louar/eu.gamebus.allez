@@ -21,24 +21,24 @@ export function launchSettings(
 		sound: sound !== false
 	};
 	try {
-		// A complete host recipe does not depend on the URL even if its link is invalid.
 		const source = host.workout ?? encoded;
-		if ('steps' in host && 'rounds' in host) {
-			const workout = parseWorkout({
-				steps: host.steps,
-				rounds: host.rounds,
-				rest: host.rest ?? 0
-			});
-			return { workout, planner, error: false };
+		let workout;
+		try {
+			workout =
+				typeof source === 'string' ? decodeWorkout(source) : parseWorkout(source ?? example);
+		} catch (err) {
+			// A self-contained collection recipe can still replace a malformed URL.
+			if (!('steps' in host && 'rounds' in host)) throw err;
+			workout = example;
 		}
-		let workout =
-			typeof source === 'string' ? decodeWorkout(source) : parseWorkout(source ?? example);
 		if ('steps' in host) {
-			workout = parseWorkout({
+			const selected = parseWorkout({
 				steps: host.steps,
-				rounds: workout.repeat && 'rounds' in workout.repeat ? workout.repeat.rounds : 1,
-				rest: host.rest ?? workout.rest ?? 0
+				...('rounds' in host ? { rounds: host.rounds } : {}),
+				rest: 'rest' in host ? host.rest : workout.rest
 			});
+			if (!('rounds' in host) && workout.repeat) selected.repeat = workout.repeat;
+			workout = selected;
 		} else if ('rounds' in host || 'rest' in host)
 			workout = parseWorkout({
 				...workout,

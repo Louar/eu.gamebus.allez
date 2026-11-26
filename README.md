@@ -26,6 +26,8 @@ Open `http://127.0.0.1:4173/allez.gamebus.eu/`. Deploy the complete `build/` dir
 
 ## Workout links
 
+The global workout defaults are **3 steps, 1 round and 15 seconds of automatic rest**. A supplied step list or time limit takes precedence. Set `rest` to `0` for back-to-back exercises.
+
 Visit `/` for the workout planner. **Start workout** opens a full-viewport practice screen with the movement guide, tracker feedback, timer and controls over the mirrored video. To share the circuit, copy the `/workouts/<base64url>/` address from the browser. Opening that link directly shows the prescription and waits for **Enable camera**. Visiting `/workouts/` without a prescription picks three distinct exercises and replaces the address with their shareable workout link, so refreshing keeps the same circuit. The planner at `/` also accepts query-based links.
 
 The workout path segment (or the planner's `?workout=` query) carries unpadded Base64URL of UTF-8 JSON, limited to 16,384 encoded characters. The planner uses the same prescription validator when generating links and opening incoming links.

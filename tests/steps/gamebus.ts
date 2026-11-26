@@ -63,7 +63,7 @@ async function launch(page: Page, baseURL: string, mode: 'page' | 'explicit' | '
 											mode === 'null'
 												? null
 												: {
-														workoutDefinition: mode === 'explicit' ? timed : { steps: 3, rounds: 2 }
+														workoutDefinition: mode === 'explicit' ? timed : { rounds: 2 }
 													},
 										activityTemplates: [{ slug: 'executeHomeWorkout', name: 'Workout' }]
 									}
@@ -96,7 +96,7 @@ Given(
 	async ({ page, baseURL }) => launch(page, baseURL!, 'page')
 );
 Given(
-	'a GameBus task supplies a random workout definition without input collections',
+	'a GameBus task specifies only the round count without input collections',
 	async ({ page, baseURL }) => launch(page, baseURL!, 'random')
 );
 Given(
@@ -110,24 +110,29 @@ Given(
 		await expect(embed(page).locator('li[data-row]')).toHaveCount(2);
 	}
 );
-Then('setup offers 3 distinct exercises for 2 rounds without rest', async ({ page }) => {
-	const setup = embed(page);
-	const rows = setup.locator('li[data-row]');
-	await expect(rows).toHaveCount(3);
-	const labels = await rows.evaluateAll((els) => els.map((el) => el.getAttribute('aria-label')!));
-	expect(new Set(labels).size).toBe(3);
-	await setup.getByRole('button', { name: 'Edit circuit' }).click();
-	await expect(setup.getByLabel('Rounds', { exact: true })).toHaveValue('2');
-	await expect(setup.getByLabel('Rest between exercises', { exact: true })).toHaveValue('0');
-	const slugs: string[] = [];
-	for (let i = 1; i <= 3; i++) {
-		await setup.getByRole('combobox', { name: `Exercise ${i}`, exact: true }).click();
-		slugs.push((await setup.getByRole('option', { selected: true }).getAttribute('data-value'))!);
-		await page.keyboard.press('Escape');
+Then(
+	'setup offers 3 distinct exercises for 2 rounds with {int} seconds of rest',
+	async ({ page }, rest: number) => {
+		const setup = embed(page);
+		const rows = setup.locator('li[data-row]');
+		await expect(rows).toHaveCount(3);
+		const labels = await rows.evaluateAll((els) => els.map((el) => el.getAttribute('aria-label')!));
+		expect(new Set(labels).size).toBe(3);
+		await setup.getByRole('button', { name: 'Edit circuit' }).click();
+		await expect(setup.getByLabel('Rounds', { exact: true })).toHaveValue('2');
+		await expect(setup.getByLabel('Rest between exercises', { exact: true })).toHaveValue(
+			String(rest)
+		);
+		const slugs: string[] = [];
+		for (let i = 1; i <= 3; i++) {
+			await setup.getByRole('combobox', { name: `Exercise ${i}`, exact: true }).click();
+			slugs.push((await setup.getByRole('option', { selected: true }).getAttribute('data-value'))!);
+			await page.keyboard.press('Escape');
+		}
+		generated.set(page, slugs);
+		await setup.getByRole('button', { name: 'Done editing' }).click();
 	}
-	generated.set(page, slugs);
-	await setup.getByRole('button', { name: 'Done editing' }).click();
-});
+);
 When('I enter practice in the embed', async ({ page }) => {
 	await embed(page).getByRole('button', { name: 'Start workout', exact: true }).click();
 	await expect(embed(page).getByTestId('stage')).toHaveAttribute('data-stage', 'practice');
@@ -177,11 +182,16 @@ Then('GameBus receives an incomplete activity with no steps', async ({ page }) =
 });
 When('I complete both timed exercises before GameBus acknowledges the create', async ({ page }) => {
 	const frame = page.frames().find((f) => f.parentFrame())!;
-	for (const seconds of [3, 2, 3])
-		await frame.evaluate(
+	const advance = (seconds: number) =>
+		frame.evaluate(
 			(s) => (window as Window & { __alez: { advance(seconds: number): void } }).__alez.advance(s),
 			seconds
 		);
+	await advance(3);
+	await advance(2);
+	await expect(embed(page).getByTestId('rest-clock')).toContainText('00:15');
+	await advance(15);
+	await advance(3);
 	await expect(embed(page).getByTestId('stage')).toHaveAttribute('data-stage', 'summary');
 	expect(await writes(page)).toHaveLength(1);
 });
@@ -230,7 +240,7 @@ Then('the final activity marks the round and workout complete', async ({ page })
 	const all = await writes(page);
 	for (const write of all) {
 		expect(write.data.properties.filter((p) => p.template === 'workoutDefinition')).toEqual([
-			{ template: 'workoutDefinition', obj: timed }
+			{ template: 'workoutDefinition', obj: { ...timed, rest: 15 } }
 		]);
 	}
 	const final = all.at(-1)!;
@@ -240,7 +250,7 @@ Then('the final activity marks the round and workout complete', async ({ page })
 	expect(final.data.properties).toContainEqual({ template: 'workoutRounds', obj: { value: 1 } });
 	expect(final.data.properties).toContainEqual({
 		template: 'duration',
-		obj: { value: 5, unit: 'SECONDS' }
+		obj: { value: 20, unit: 'SECONDS' }
 	});
 	// Timed exercises without tracked movement have no quality samples.
 	expect(final.data.properties).toContainEqual({ template: 'workoutQuality', obj: { value: 0 } });

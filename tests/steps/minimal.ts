@@ -46,6 +46,7 @@ Given('I open a minimal squat link with a 45-second workout limit', async ({ pag
 	const encoded = encodeWorkout({
 		v: 1,
 		steps: [{ exercise: 'squat', duration: 15 }],
+		rest: 0,
 		repeat: { duration: 45 }
 	});
 	await page.goto(`${baseURL}workouts/${encoded}/`);
@@ -96,11 +97,34 @@ Given('I open minimal workouts without a prescription', async ({ page }) => {
 	expect((await page.goto('workouts/'))?.status()).toBe(200);
 });
 
+Then(
+	'different random draws at the bare workout path produce different exercise lists',
+	async ({ page }) => {
+		await page.addInitScript(() => {
+			if (location.pathname.endsWith('/workouts/')) {
+				const draw = Number(new URLSearchParams(location.search).get('draw'));
+				Math.random = () => draw;
+			}
+		});
+		const draws = [];
+		for (const draw of [0.1, 0.9]) {
+			await page.goto(`workouts/?draw=${draw}`);
+			await expect(enable(page)).toBeVisible();
+			const workout = decodeWorkout(segment(new URL(page.url())));
+			draws.push(workout.steps.filter((s) => 'exercise' in s).map((s) => s.exercise));
+		}
+		expect(draws[0]).not.toEqual(draws[1]);
+	}
+);
+
 Then('I get a shareable circuit with three exercises', async ({ page, baseURL }) => {
 	await expect(enable(page)).toBeVisible();
 	const url = new URL(page.url());
 	expect(url.href).toBe(`${baseURL}workouts/${segment(url)}/`);
-	expect(decodeWorkout(segment(url)).steps.filter((s) => 'exercise' in s)).toHaveLength(3);
+	const workout = decodeWorkout(segment(url));
+	expect(workout).toMatchObject({ repeat: { rounds: 1 }, rest: 15 });
+	expect(workout.steps).toHaveLength(3);
+	expect(new Set(workout.steps.filter((s) => 'exercise' in s).map((s) => s.exercise)).size).toBe(3);
 	paths.set(page, url.href);
 });
 

@@ -2,17 +2,17 @@ Feature: Launch and record workouts from GameBus
 
   Scenario: An embedded page overrides a link with a random workout
     Given a GameBus page opens a conflicting Allez link with random workout settings
-    Then setup offers 3 distinct exercises for 2 rounds without rest
+    Then setup offers 3 distinct exercises for 2 rounds with 0 seconds of rest
     When I enter practice in the embed
     Then the practice link preserves the generated circuit and GameBus preferences
 
-  Scenario: A random task workout does not need input collections
-    Given a GameBus task supplies a random workout definition without input collections
-    Then setup offers 3 distinct exercises for 2 rounds without rest
+  Scenario: A rounds-only random task workout defaults its exercise count and rest without input collections
+    Given a GameBus task specifies only the round count without input collections
+    Then setup offers 3 distinct exercises for 2 rounds with 15 seconds of rest
 
   Scenario: A task without configuration still uses collection settings
     Given a GameBus task has null configuration and supplies collection settings
-    Then setup offers 3 distinct exercises for 2 rounds without rest
+    Then setup offers 3 distinct exercises for 2 rounds with 0 seconds of rest
 
   Scenario: A task definition overrides collection settings and is included in every activity write
     Given a GameBus task opens a conflicting Allez link with two timed exercises

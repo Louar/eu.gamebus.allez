@@ -109,7 +109,8 @@
 				"v": { "const": 1, "description": "Workout format version." },
 				"rest": {
 					"$ref": "#/$defs/nonNegativeInteger",
-					"description": "Automatic rest in seconds between adjacent exercise steps, including across rounds. Omit or use zero to disable."
+					"default": 15,
+					"description": "Automatic rest in seconds between adjacent exercise steps, including across rounds. Set zero to disable."
 				},
 				"steps": {
 					"type": "array",
@@ -131,19 +132,21 @@
 				"steps": {
 					"type": "integer",
 					"minimum": 1,
-					"maximum": 8,
-					"description": "Number of distinct exercises randomly selected from the catalog."
+					"maximum": 25,
+					"default": 3,
+					"description": "Number of exercise steps. Exercises are unique up to the catalog size; longer circuits allow repeats but never in adjacent positions."
 				},
 				"rounds": {
 					"$ref": "#/$defs/positiveInteger",
+					"default": 1,
 					"description": "Total number of rounds using the same selected exercises."
 				},
 				"rest": {
 					"$ref": "#/$defs/nonNegativeInteger",
-					"description": "Automatic rest between exercises in seconds. Defaults to zero when omitted."
+					"default": 15,
+					"description": "Automatic rest between exercises in seconds. Set zero to disable."
 				}
 			},
-			"required": ["steps", "rounds"],
 			"additionalProperties": false
 		}
 	}

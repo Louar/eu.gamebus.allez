@@ -18,7 +18,7 @@ const plank = demoFrames('plank')[0];
 const cycle = demoFrames('squat');
 
 function run(steps: Workout['steps'], extra: Partial<Omit<Workout, 'steps' | 'v'>> = {}) {
-	const session = new Session({ v: 1, steps, ...extra });
+	const session = new Session({ v: 1, steps, rest: 0, ...extra });
 	session.start(0);
 	return session;
 }
@@ -51,7 +51,7 @@ test('previously shared links stay canonical when the planner default changes', 
 	assert.deepEqual(decodeWorkout(encodeWorkout(example)), example);
 	const w = { v: 1, steps: [squat, squat], rest: 0, repeat: { duration: 600 } } as const;
 	assert.deepEqual(decodeWorkout(encodeWorkout(parseWorkout(w))), w);
-	assert.deepEqual(parseWorkout({ v: 1, steps: [squat] }), { v: 1, steps: [squat] });
+	assert.deepEqual(parseWorkout({ v: 1, steps: [squat] }), { v: 1, steps: [squat], rest: 15 });
 });
 
 test('reject ambiguous, unsupported or unsafe prescriptions', () => {
@@ -59,7 +59,6 @@ test('reject ambiguous, unsupported or unsafe prescriptions', () => {
 	const invalid = [
 		null,
 		[],
-		{},
 		{ ...example, v: 2 },
 		{ ...example, title: 'x' },
 		...[
@@ -119,7 +118,7 @@ test('practice, countdown and repeated starts cannot credit the session', () => 
 		for (let i = 0; i < 3; i++)
 			practiceReps += Number(practice.update({ ...frame, timestamp: (t += 0.05) }).rep);
 	assert.equal(practiceReps, 1);
-	const s = new Session({ v: 1, steps: [squat, squat] });
+	const s = new Session({ v: 1, steps: [squat, squat], rest: 0 });
 	const practiceEpoch = s.epoch;
 	s.tick(100);
 	s.start(103);
@@ -325,7 +324,7 @@ test('quality survives interruptions and is saved separately for each round', ()
 });
 
 test('round target changes preserve progress and control when the session ends', () => {
-	const original: Workout = { v: 1, steps: [interval] };
+	const original: Workout = { v: 1, steps: [interval], rest: 0 };
 	const s = new Session(original);
 	assert.equal(s.setRounds(3), true);
 	assert.equal(original.repeat, undefined);

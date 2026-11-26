@@ -115,7 +115,8 @@ Given(
 	async ({ page }, a: number, b: number) => {
 		await openCircuit(
 			page,
-			[a, b].map((duration) => ({ exercise: 'squat', duration }))
+			[a, b].map((duration) => ({ exercise: 'squat', duration })),
+			{ rest: 0 }
 		);
 	}
 );

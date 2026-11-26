@@ -1,6 +1,6 @@
 import { expect, type Page } from '@playwright/test';
 import { createBdd } from 'playwright-bdd';
-import { decodeWorkout, example } from '../../src/lib/workout';
+import { decodeWorkout, encodeWorkout } from '../../src/lib/workout';
 
 const { Given, When, Then } = createBdd();
 const circuit = (page: Page) => page.getByRole('list', { name: 'Your circuit', exact: true });
@@ -10,6 +10,78 @@ const handle = (page: Page, n: number) =>
 Given('I open the focused session planner', async ({ page }) => {
 	await page.goto('./');
 	await expect(circuit(page)).toBeVisible();
+});
+
+Given('I open a planner URL prescribing only 2 random exercises', async ({ page }) => {
+	const encoded = Buffer.from(JSON.stringify({ steps: 2 })).toString('base64url');
+	await page.goto(`?workout=${encoded}`);
+});
+
+Given(
+	'I request a random circuit of {int} steps for two rounds',
+	async ({ page }, steps: number) => {
+		const encoded = Buffer.from(JSON.stringify({ steps, rounds: 2 })).toString('base64url');
+		await page.goto(`?workout=${encoded}`);
+	}
+);
+
+Then(
+	'the planner shows {int} steps using all eight exercises without adjacent repeats',
+	async ({ page }, count: number) => {
+		const rows = circuit(page).getByRole('listitem');
+		await expect(rows).toHaveCount(count);
+		const names = await rows.evaluateAll((items) =>
+			items.map((item) => item.getAttribute('aria-label'))
+		);
+		expect(new Set(names.slice(0, 8)).size).toBe(8);
+		for (let i = 0; i < count; i++) expect(names[i]).not.toBe(names[(i + 1) % count]);
+	}
+);
+
+Then('the planner warns that the workout link is invalid', async ({ page }) => {
+	await expect(page.getByText(/This workout link could not be opened/)).toBeVisible();
+});
+
+Then(
+	'the planner offers two distinct exercises for one round with 15 seconds of rest',
+	async ({ page }) => {
+		const rows = circuit(page).getByRole('listitem');
+		await expect(rows).toHaveCount(2);
+		await page.getByRole('button', { name: 'Start workout', exact: true }).click();
+		await expect(page.getByTestId('stage')).toHaveAttribute('data-stage', 'practice');
+		const workout = decodeWorkout(new URL(page.url()).pathname.split('/').at(-2)!);
+		expect(workout).toMatchObject({ rest: 15, repeat: { rounds: 1 } });
+		expect(new Set(workout.steps.filter((s) => 'exercise' in s).map((s) => s.exercise)).size).toBe(
+			2
+		);
+	}
+);
+
+Then(
+	'the planner lists squat, plank and jumping-jack for one round with 15 seconds of rest',
+	async ({ page }) => {
+		const rows = circuit(page).getByRole('listitem');
+		await expect(rows).toHaveCount(3);
+		for (const [i, name] of ['Squat', 'Plank', 'Jumping-jack'].entries())
+			await expect(rows.nth(i)).toHaveAccessibleName(name);
+		await page.getByRole('button', { name: 'Edit circuit' }).click();
+		await expect(page.getByLabel('Rounds', { exact: true })).toHaveValue('1');
+		await expect(page.getByLabel('Rest between exercises', { exact: true })).toHaveValue('15');
+	}
+);
+
+Given('I open a planner with repetitions, a hold, a break and an interval', async ({ page }) => {
+	const encoded = encodeWorkout({
+		v: 1,
+		steps: [
+			{ exercise: 'squat', reps: 5 },
+			{ exercise: 'plank', hold: 10 },
+			{ rest: 5 },
+			{ exercise: 'jumping-jack', duration: 15 }
+		],
+		repeat: { rounds: 3 }
+	});
+	await page.goto(`?workout=${encoded}`);
 });
 
 Then('only the planner and language controls are shown', async ({ page }) => {
@@ -59,7 +131,7 @@ Then('planner inputs show time and repetition suffixes', async ({ page }) => {
 	await expect(
 		suffix(page.getByRole('spinbutton', { name: 'Rest between exercises', exact: true }))
 	).toHaveText('s');
-	for (const [i, unit] of ['×', 's', 's', 's', '×'].entries()) {
+	for (const [i, unit] of ['×', 's', 's', 's'].entries()) {
 		await expect(
 			suffix(circuit(page).locator('[data-row]').nth(i).getByRole('spinbutton'))
 		).toHaveText(unit);
@@ -106,7 +178,9 @@ Then('starting the workout preserves the reordered steps', async ({ page }) => {
 	await page.getByRole('button', { name: 'Start workout', exact: true }).click();
 	await expect(page.getByTestId('stage')).toHaveAttribute('data-stage', 'practice');
 	const encoded = new URL(page.url()).pathname.split('/').at(-2)!;
-	const steps = [...example.steps];
-	[steps[0], steps[1]] = [steps[1], steps[0]];
-	expect(decodeWorkout(encoded).steps).toEqual(steps);
+	expect(decodeWorkout(encoded).steps).toEqual([
+		{ exercise: 'plank', hold: 15 },
+		{ exercise: 'squat', reps: 5 },
+		{ exercise: 'jumping-jack', duration: 15 }
+	]);
 });
