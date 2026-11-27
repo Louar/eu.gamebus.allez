@@ -24,8 +24,9 @@
 	import { dragHandle, dragHandleZone, type DndEvent } from 'svelte-dnd-action';
 	import { flip } from 'svelte/animate';
 	import LocalizedSelect from './LocalizedSelect.svelte';
+	import ExercisePicker from './ExercisePicker.svelte';
 	import Offline from './Offline.svelte';
-	import { exercises, type ExerciseId } from './motion';
+	import type { ExerciseId } from './motion';
 	import { updateLocked } from './offline';
 	import { name } from './words';
 	import { encodeWorkout, parseWorkout, type Workout } from './workout';
@@ -129,7 +130,7 @@
 		focusRow(row.id);
 	}
 	function focusRow(key: number) {
-		form.querySelector<HTMLElement>(`[data-row="${key}"] :is([role="combobox"],input)`)?.focus();
+		form.querySelector<HTMLElement>(`[data-row="${key}"] :is(.exercise-picker,input)`)?.focus();
 	}
 	async function remove(i: number) {
 		rows.splice(i, 1);
@@ -348,11 +349,10 @@
 									<Field.Field
 										class="col-span-2 min-[521px]:col-span-1 min-[741px]:col-span-2 min-[941px]:col-span-1"
 									>
-										<LocalizedSelect
+										<ExercisePicker
 											label={m.setup_exercise_label({ n: i + 1 })}
 											value={row.exercise}
 											onchange={(v: ExerciseId) => changeExercise(row, v)}
-											options={exercises.map((value) => ({ value, label: name(value) }))}
 										/>
 									</Field.Field>
 									<Field.Field>

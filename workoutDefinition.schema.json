@@ -15,15 +15,23 @@
 				"sit-up",
 				"squat-hold",
 				"burpee",
-				"plank"
+				"plank",
+				"bicycle-crunch",
+				"heel-tap",
+				"forward-lunge",
+				"reverse-lunge",
+				"glute-bridge",
+				"pogo-jump",
+				"squat-jump",
+				"dead-bug"
 			]
 		},
 		"repetitionStep": {
 			"type": "object",
 			"properties": {
 				"exercise": {
-					"type": "string",
-					"enum": ["push-up", "squat", "jumping-jack", "front-jack", "sit-up", "burpee"]
+					"$ref": "#/$defs/exercise",
+					"not": { "$ref": "#/$defs/holdStep/properties/exercise" }
 				},
 				"reps": {
 					"$ref": "#/$defs/positiveInteger",

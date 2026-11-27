@@ -113,6 +113,95 @@ test('front-facing forward reach counts, lateral shoulder-height reach does not'
 	raised.points.right_wrist.x -= 38;
 	assert.equal(reps('front-jack', [closed, raised, closed]), 0);
 });
+
+const similarMovements = {
+	'bicycle-crunch': ['dead-bug', 'sit-up'],
+	'heel-tap': ['glute-bridge', 'sit-up'],
+	'forward-lunge': ['reverse-lunge', 'squat'],
+	'reverse-lunge': ['forward-lunge', 'squat'],
+	'glute-bridge': ['sit-up', 'heel-tap'],
+	'pogo-jump': ['squat', 'squat-jump'],
+	'squat-jump': ['pogo-jump', 'squat'],
+	'dead-bug': ['bicycle-crunch', 'heel-tap']
+};
+
+for (const [id, nearMisses] of Object.entries(similarMovements)) {
+	test(`${id} counts a full mirrored cycle but not an interrupted one`, () => {
+		// Simulate another detector and camera framing, retaining anatomical joint names.
+		const frames = demoFrames(id).map((f) => ({
+			...f,
+			width: 640,
+			height: 480,
+			provider: 'webcam-fixture',
+			points: Object.fromEntries(
+				Object.entries(f.points).map(([name, p]) => [
+					name,
+					{ x: 500 - 1.7 * p.x, y: 35 + 1.7 * p.y, score: 0.82 }
+				])
+			)
+		}));
+		const incomplete = frames.slice(0, -1);
+		assert.equal(reps(id, incomplete), 0, 'must return or land');
+		assert.equal(reps(id, [...incomplete, { ...frames[0], missing: true }, frames.at(-1)]), 0);
+		assert.equal(reps(id, frames), 1);
+	});
+	test(`${id} rejects similar exercises`, () => {
+		for (const other of nearMisses) {
+			const cycle = demoFrames(other);
+			assert.equal(reps(id, [...cycle, ...cycle]), 0, `${other} counted as ${id}`);
+		}
+	});
+}
+
+for (const id of ['bicycle-crunch', 'heel-tap', 'dead-bug']) {
+	test(`${id} requires both sides and allows either side to lead`, () => {
+		const [rest, a, , b] = demoFrames(id);
+		assert.equal(reps(id, [rest, a, rest, a, rest]), 0, 'same side twice');
+		assert.equal(reps(id, [rest, b, rest, a, rest]), 1, 'opposite starting side');
+	});
+}
+
+for (const id of ['bicycle-crunch', 'heel-tap']) {
+	test(`${id} credits continuous left-right pairs without a pause between sides`, () => {
+		const [rest, a, , b] = demoFrames(id);
+		assert.equal(reps(id, [rest, a, b, a, b, rest]), 2);
+	});
+}
+
+for (const id of ['forward-lunge', 'reverse-lunge']) {
+	test(`${id} requires a return to the original stance`, () => {
+		const [start, split, finish] = demoFrames(id);
+		const step = id === 'forward-lunge' ? 50 : -50;
+		for (const p of Object.values(finish.points)) p.x += step;
+		assert.equal(reps(id, [start, split, finish]), 0);
+	});
+}
+
+for (const id of ['bicycle-crunch', 'dead-bug']) {
+	test(`${id} rejects same-side arm and leg movement`, () => {
+		const poses = demoFrames(id);
+		for (const { points: p } of poses) {
+			// Exchange the arm configurations relative to their own shoulders, not the torso.
+			for (const joint of ['elbow', 'wrist']) {
+				const left = p[`left_${joint}`],
+					right = p[`right_${joint}`];
+				for (const axis of ['x', 'y']) {
+					const offset = p.left_shoulder[axis] - p.right_shoulder[axis];
+					[left[axis], right[axis]] = [right[axis] + offset, left[axis] - offset];
+				}
+			}
+		}
+		assert.equal(reps(id, poses), 0);
+	});
+}
+
+test('squat jump needs a squat before takeoff and pogo needs both feet airborne', () => {
+	const squatJump = demoFrames('squat-jump');
+	assert.equal(reps('squat-jump', [squatJump[0], ...squatJump.slice(2)]), 0);
+	const [standing, airborne, landed] = demoFrames('pogo-jump');
+	airborne.points.right_ankle.y = standing.points.right_ankle.y;
+	assert.equal(reps('pogo-jump', [standing, airborne, landed]), 0);
+});
 test('sit-up with extended legs requires sitting up and returning to the floor', () => {
 	const poses = demoFrames('sit-up');
 	for (const { points: p } of poses)

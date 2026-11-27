@@ -149,7 +149,7 @@ Then('I can return from the link error to the minimal planner', async ({ page, b
 
 When('I enable the workout camera and start the countdown', async ({ page }) => {
 	await enable(page).click();
-	await expect(page.getByRole('combobox', { name: 'Practice exercise' })).toHaveText(/squat/i);
+	await expect(page.getByRole('button', { name: 'Practice exercise' })).toHaveText(/squat/i);
 	await start(page).click();
 	await expect(page.getByTestId('stage')).toHaveAttribute('data-stage', 'countdown');
 	await page.evaluate(() =>
@@ -190,20 +190,23 @@ Then('the practice cards and controls fit the viewport', async ({ page }) => {
 	}
 	const controls = page.getByTestId('session-controls');
 	await expect(controls.getByRole('button', { name: 'Pause', exact: true })).toHaveCount(0);
-	await expect(controls.getByRole('combobox')).toHaveCount(0);
+	await expect(controls.getByRole('button', { name: 'Practice exercise' })).toHaveCount(0);
 	await expect(controls.getByRole('button', { name: 'Start workout', exact: true })).toHaveText(
 		'Start workout'
 	);
 	const picker = page
 		.getByTestId('current-exercise')
-		.getByRole('combobox', { name: 'Practice exercise' });
+		.getByRole('button', { name: 'Practice exercise' });
 	await expect(picker).toBeVisible();
 	const headingSize = await picker
 		.locator('..')
 		.evaluate((node) => getComputedStyle(node).fontSize);
 	await expect(picker).toHaveCSS('font-size', headingSize);
 	await picker.click();
-	await page.getByRole('option', { name: 'Jumping-jack', exact: true }).click();
+	await page
+		.getByRole('group', { name: 'Cardio' })
+		.getByRole('option', { name: 'Jumping-jack', exact: true })
+		.click();
 	await expect(picker).toHaveText('Jumping-jack');
 	await expect(page.getByTestId('counter')).toHaveText('0');
 	for (const button of await controls.getByRole('button').all()) {

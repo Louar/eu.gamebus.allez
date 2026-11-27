@@ -19,6 +19,15 @@ const button = (page: Page, name: string) => page.getByRole('button', { name, ex
 const stage = (page: Page, name: string) =>
 	expect(page.getByTestId('stage')).toHaveAttribute('data-stage', name);
 
+Then('the movement guide explains alternating pairs and camera placement', async ({ page }) => {
+	await button(page, 'Movement guide').click();
+	const guide = page.getByRole('dialog', { name: 'Movement guide' });
+	await expect(guide).toContainText('both arms and legs are visible');
+	await expect(guide).toContainText('One left-and-right pair counts as one rep');
+	await page.keyboard.press('Escape');
+	await expect(guide).toBeHidden();
+});
+
 BeforeScenario(async ({ page, baseURL }) => {
 	const problems: string[] = [];
 	violations.set(page, problems);
@@ -263,10 +272,11 @@ Then('the model and runtime files are served under the repository path', async (
 When('I practise {string}', async ({ page }, exercise: string) => {
 	await button(page, 'Start workout').click();
 	await stage(page, 'practice');
-	await page.getByRole('combobox', { name: 'Practice exercise', exact: true }).click();
+	await button(page, 'Practice exercise').click();
 	await page
 		.getByRole('option')
-		.and(page.locator(`[data-value="${exercise}"]`))
+		.and(page.locator(`[data-exercise="${exercise}"]`))
+		.first()
 		.click();
 });
 When('I leave practice and start the countdown', async ({ page }) => {
@@ -333,12 +343,7 @@ Then(
 	async ({ page }, target: number, exercise: string) => {
 		await button(page, 'Edit circuit').click();
 		await expect(page.getByLabel('Target 1', { exact: true })).toHaveValue(String(target));
-		await page.getByRole('combobox', { name: 'Exercise 1', exact: true }).click();
-		await expect(page.getByRole('option', { selected: true })).toHaveAttribute(
-			'data-value',
-			exercise
-		);
-		await page.keyboard.press('Escape');
+		await expect(button(page, 'Exercise 1')).toHaveAttribute('data-exercise', exercise);
 		await page.getByRole('combobox', { name: 'Target type 1', exact: true }).click();
 		await expect(page.getByRole('option', { selected: true })).toHaveAttribute(
 			'data-value',
@@ -355,10 +360,11 @@ When('I switch setup to Dutch', async ({ page }) => {
 When('I open Dutch practice for {string}', async ({ page }, exercise: string) => {
 	await button(page, 'Start training').click();
 	await stage(page, 'practice');
-	await page.getByRole('combobox', { name: 'Oefening uitproberen', exact: true }).click();
+	await button(page, 'Oefening uitproberen').click();
 	await page
 		.getByRole('option')
-		.and(page.locator(`[data-value="${exercise}"]`))
+		.and(page.locator(`[data-exercise="${exercise}"]`))
+		.first()
 		.click();
 });
 Then('the practice counter shows one repetition', async ({ page }) => {

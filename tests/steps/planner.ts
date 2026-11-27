@@ -1,6 +1,7 @@
 import { expect, type Page } from '@playwright/test';
 import { createBdd } from 'playwright-bdd';
 import { decodeWorkout, encodeWorkout } from '../../src/lib/workout';
+import { exercises } from '../../src/lib/motion';
 
 const { Given, When, Then } = createBdd();
 const circuit = (page: Page) => page.getByRole('list', { name: 'Your circuit', exact: true });
@@ -26,20 +27,90 @@ Given(
 );
 
 Then(
-	'the planner shows {int} steps using all eight exercises without adjacent repeats',
+	'the planner shows {int} steps drawing from the whole catalog before repeating',
 	async ({ page }, count: number) => {
 		const rows = circuit(page).getByRole('listitem');
 		await expect(rows).toHaveCount(count);
 		const names = await rows.evaluateAll((items) =>
 			items.map((item) => item.getAttribute('aria-label'))
 		);
-		expect(new Set(names.slice(0, 8)).size).toBe(8);
+		expect(new Set(names.slice(0, exercises.length)).size).toBe(Math.min(count, exercises.length));
 		for (let i = 0; i < count; i++) expect(names[i]).not.toBe(names[(i + 1) % count]);
 	}
 );
 
 Then('the planner warns that the workout link is invalid', async ({ page }) => {
 	await expect(page.getByText(/This workout link could not be opened/)).toBeVisible();
+});
+
+Then(
+	'I can search the ordered exercise categories and choose a result with the keyboard',
+	async ({ page }) => {
+		await page.getByRole('button', { name: 'Edit circuit' }).click();
+		const picker = page.getByRole('button', { name: 'Exercise 1', exact: true });
+		await picker.press('Enter');
+		const dialog = page.getByRole('dialog', { name: 'Exercise 1' });
+		const groups = dialog.getByRole('listbox').getByRole('group');
+		const expected = {
+			'Upper body': ['push-up', 'plank', 'burpee'],
+			'Lower body': [
+				'glute-bridge',
+				'squat',
+				'squat-hold',
+				'reverse-lunge',
+				'forward-lunge',
+				'pogo-jump',
+				'squat-jump'
+			],
+			Core: ['dead-bug', 'heel-tap', 'glute-bridge', 'plank', 'sit-up', 'bicycle-crunch'],
+			'Full body': ['front-jack', 'jumping-jack', 'burpee'],
+			Cardio: ['front-jack', 'jumping-jack', 'pogo-jump', 'squat-jump', 'burpee'],
+			Stability: [
+				'glute-bridge',
+				'dead-bug',
+				'squat-hold',
+				'plank',
+				'reverse-lunge',
+				'forward-lunge'
+			]
+		};
+		await expect(groups).toHaveCount(6);
+		for (const [i, [category, ids]] of Object.entries(expected).entries()) {
+			await expect(groups.nth(i)).toHaveAccessibleName(category);
+			expect(
+				await groups
+					.nth(i)
+					.getByRole('option')
+					.evaluateAll((nodes) => nodes.map((n) => n.getAttribute('data-exercise')))
+			).toEqual(ids);
+		}
+		const search = dialog.getByRole('combobox', { name: 'Search exercises or categories' });
+		await expect(search).toBeFocused();
+		await search.fill('no such exercise');
+		await expect(dialog.getByRole('status')).toHaveText('No matching exercises.');
+		await search.fill('dead bug');
+		await expect(dialog.getByRole('option')).toHaveCount(2);
+		await search.press('ArrowDown');
+		await search.press('Enter');
+		await expect(picker).toHaveAttribute('data-exercise', 'dead-bug');
+		await expect(picker).toBeFocused();
+		await picker.click();
+		await expect(search).toHaveValue('');
+		await search.press('Escape');
+		await expect(picker).toBeFocused();
+	}
+);
+
+Then('I can search the Dutch exercise picker for opdrukken', async ({ page }) => {
+	await page.getByRole('button', { name: 'Circuit bewerken' }).click();
+	const picker = page.getByRole('button', { name: 'Oefening 1', exact: true });
+	await picker.click();
+	const search = page.getByRole('combobox', { name: 'Zoek oefeningen of categorieën' });
+	await search.fill('BOVENLICHAAM');
+	await expect(page.getByRole('option')).toHaveCount(3);
+	await search.fill('opdruk');
+	await page.getByRole('option', { name: 'Opdrukken' }).click();
+	await expect(picker).toHaveText('Opdrukken');
 });
 
 Then(

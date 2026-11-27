@@ -1,6 +1,6 @@
 # Motion tracker evaluation
 
-**The eight synthetic movements pass. The tracker is not validated as an accurate general-purpose rep counter.** On short held-out video sets, both current detectors counted one squat correctly and timed one plank correctly, but neither counted the two push-ups or the three jumping-jacks. The historical frame results and the live-model clip results below measure different things.
+**All 16 movements have synthetic landmark replay coverage. The tracker is not validated as an accurate general-purpose rep counter.** On short held-out video sets, both current detectors counted one squat correctly and timed one plank correctly, but neither counted the two push-ups or the three jumping-jacks. The historical frame results and the live-model clip results below measure different things.
 
 ## Current providers: continuous video
 
@@ -51,9 +51,9 @@ The archived detector revisions are not recorded in the CSV. Historical BlazePos
 
 ## Rules and replay checks
 
-The production code in `src/lib/motion.ts` uses common 2D joints in source pixels. Joint vectors remove translation, angles and torso-length ratios remove most sensitivity to size, and the image vertical is retained to distinguish upright from floor work. The more confident complete side is used except for jacks, which need both arms and ankles. A score below 0.25 fails the joint-confidence gate. This common cutoff is not a calibrated probability and reports very different loss rates across models. No optional depth or detector-specific joints are required.
+The production tracker uses common 2D joints in source pixels. Joint angles and torso-length ratios reduce sensitivity to size; image vertical distinguishes upright from floor work. Jacks, alternating floor exercises, lunges and jumps require bilateral landmarks. Lunges and jumps also use foot positions relative to an observed standing baseline, so they require a stationary camera. A score below 0.25 fails the joint-confidence gate. This common cutoff is not a calibrated probability and reports very different loss rates across models. No optional depth or detector-specific joints are required.
 
-The movement definitions drive both the state machine and demo sequence. Reps require two consecutive agreeing observations per ordered end pose and the return to start. Burpees additionally require lowered and re-extended floor support, tuck, ankle elevation relative to standing, and a landing. Ankle elevation is a 2D proxy, not proof of takeoff. Front-jacks require an oblique view with both wrists projecting in the same direction at shoulder height; this is not validated for a straight-on camera.
+The movement definitions drive both the state machine and demo sequence. Most phases require two agreeing observations; for short pogo and squat jumps, a single airborne observation between confirmed ground phases can suffice. Ankle elevation is a 2D proxy, not proof of takeoff. Burpees additionally require lowered and re-extended floor support, tuck and a landing. Front-jacks require an oblique view with both wrists projecting in the same direction at shoulder height; this is not validated for a straight-on camera.
 
 Static holds accrue only between two matching observations. One ambiguous posture freezes the streak, excludes both adjacent intervals and does not add time; a second mismatch breaks it. Any missing/unreliable pose, provider change, explicit reset, or gap above 0.35 s invalidates continuity. The tracker has no workout clock and cannot credit a pause by itself.
 
@@ -63,8 +63,8 @@ node scripts/evaluate-motion.mjs --dev
 node scripts/evaluate-motion.mjs
 ```
 
-11/11 tracker checks passed. At 20 Hz the six dynamic demos each produced 3/3 reps and the two hold demos each produced 1.45/1.45 s. Checks include wrong jacks, standing rest, sustained squat without a return, partial burpees lacking push-up or jump, an occlusion mid-cycle, hold jitter, confidence loss, provider changes and a timestamp gap. Synthetic fixtures are regression checks of these definitions, not independent evidence of exercise recognition.
+At 20 Hz the dynamic demos each produced 3/3 reps and the two hold demos each produced 1.45/1.45 s. Regression checks include mirrored cycles, opposite-direction lunges, same-side vs. opposite-side extensions, squats without takeoff, partial cycles, hold jitter and tracking loss. Synthetic fixtures check these definitions; they are not independent evidence of real-world exercise recognition.
 
 ## Limits on use
 
-For **both** selectable providers, front-jack, sit-up, squat-hold and burpee have no independently labeled real-video evaluation. The other four exercises have only the small paired windows above. No generalization claim for new people, camera heights, lighting, movement speeds or mobility variations; no reliable view-invariant proof of form or ground contact. Real rest/confusable examples for other prescriptions remain unmeasured. No representative Android or iOS Safari testing here. Chromium seeking and software inference at prerecorded timestamps are not live camera FPS or phone latency benchmarks. Optional YOLO and RTMO are not validated by this tracker evaluation.
+Only push-up, squat, jumping-jack and plank have the small paired video windows above. None of the other exercises has independently labeled real-video evaluation on either provider. No generalization claim for new people, camera heights, lighting, movement speeds or mobility variations; no reliable view-invariant proof of form or ground contact. Real rest/confusable examples for other prescriptions remain unmeasured. No representative Android or iOS Safari testing here. Chromium seeking and software inference at prerecorded timestamps are not live camera FPS or phone latency benchmarks. Optional YOLO and RTMO are not validated by this tracker evaluation.

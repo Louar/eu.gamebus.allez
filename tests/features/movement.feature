@@ -28,13 +28,34 @@ Feature: Credit only observed, prescribed movement
     Then the counter reads "1 / 3"
 
     Examples:
-      | exercise    |
-      | squat       |
-      | jumping-jack|
-      | front-jack  |
-      | push-up     |
-      | sit-up      |
-      | burpee      |
+      | exercise       |
+      | squat          |
+      | jumping-jack   |
+      | front-jack     |
+      | push-up        |
+      | sit-up         |
+      | burpee         |
+      | bicycle-crunch |
+      | heel-tap       |
+      | forward-lunge  |
+      | reverse-lunge  |
+      | glute-bridge   |
+      | pogo-jump      |
+      | squat-jump     |
+      | dead-bug       |
+
+  Scenario Outline: A similar movement does not earn the prescribed rep
+    Given my circuit prescribes 3 reps of "<prescribed>"
+    When I start the workout after practice
+    And I perform 2 cycles of "<different>"
+    Then the counter reads "0 / 3"
+
+    Examples:
+      | prescribed    | different      |
+      | forward-lunge | reverse-lunge  |
+      | reverse-lunge | forward-lunge  |
+      | squat-jump    | pogo-jump      |
+      | dead-bug      | bicycle-crunch |
 
   Scenario Outline: A verified hold must be uninterrupted
     Given my circuit prescribes 3 seconds held in "<exercise>"

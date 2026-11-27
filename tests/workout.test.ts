@@ -8,7 +8,8 @@ import {
 	parseWorkout,
 	type Workout
 } from '../src/lib/workout.ts';
-import { demoFrames, Tracker, type PoseFrame } from '../src/lib/motion.ts';
+import { demoFrames, exercises, Tracker, type PoseFrame } from '../src/lib/motion.ts';
+import schema from '../workoutDefinition.schema.json' with { type: 'json' };
 
 const encodedExample =
 	'eyJ2IjoxLCJyZXN0IjoxNSwic3RlcHMiOlt7ImV4ZXJjaXNlIjoic3F1YXQiLCJyZXBzIjoxMH0seyJleGVyY2lzZSI6Imp1bXBpbmctamFjayIsImR1cmF0aW9uIjoyMH0seyJyZXN0IjoxMH0seyJleGVyY2lzZSI6InBsYW5rIiwiaG9sZCI6MzB9XSwicmVwZWF0Ijp7InJvdW5kcyI6M319';
@@ -52,6 +53,22 @@ test('previously shared links stay canonical when the planner default changes', 
 	const w = { v: 1, steps: [squat, squat], rest: 0, repeat: { duration: 600 } } as const;
 	assert.deepEqual(decodeWorkout(encodeWorkout(parseWorkout(w))), w);
 	assert.deepEqual(parseWorkout({ v: 1, steps: [squat] }), { v: 1, steps: [squat], rest: 15 });
+});
+
+test('the published exercise catalog matches shareable rep, hold and interval prescriptions', () => {
+	assert.deepEqual([...schema.$defs.exercise.enum].sort(), [...exercises].sort());
+	for (const exercise of exercises) {
+		const isHold = schema.$defs.holdStep.properties.exercise.enum.includes(exercise);
+		const workout: Workout = {
+			v: 1,
+			rest: 0,
+			steps: [isHold ? { exercise, hold: 3 } : { exercise, reps: 3 }, { exercise, duration: 5 }]
+		};
+		assert.deepEqual(decodeWorkout(encodeWorkout(workout)), workout);
+		assert.throws(() =>
+			parseWorkout({ v: 1, steps: [isHold ? { exercise, reps: 3 } : { exercise, hold: 3 }] })
+		);
+	}
 });
 
 test('reject ambiguous, unsupported or unsafe prescriptions', () => {

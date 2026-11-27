@@ -48,6 +48,15 @@ The workout path segment (or the planner's `?workout=` query) carries unpadded B
 
 All times are seconds. `reps` counts completed cycles, `hold` requires a continuous verified posture, and `duration` ends on time even if tracking is lost. Replace `rounds` with `duration` for a timed circuit. Explicit rest steps occupy their own positions and replace adjacent automatic breaks. Pausing or backgrounding the page freezes the clocks; press Resume to continue. Practice can use any exercise, whether prescribed or not.
 
+### Webcam setup and counting
+
+Use the searchable exercise picker in the planner or practice room. Its six categories overlap: selecting **Glute bridge** under Core is the same prescription as selecting it under Lower body.
+
+- **Bicycle crunch, heel tap and dead bug:** use an oblique view that shows both arms and both legs. A left-and-right pair counts as one rep; either side can go first.
+- **Forward and reverse lunge:** start with feet together and turn side-on or slightly toward the camera so it can see both feet and the direction of the step. Step out, bend both knees, then return to standing for one rep. Switch legs for the next rep.
+- **Glute bridge:** use a side view showing your shoulders, hips, knees and feet. Lift and lower your hips for one rep.
+- **Pogo jump and squat jump:** keep the camera stationary and both feet in frame, including at the top of the jump. Start standing so the tracker can establish floor height. A pogo bounce uses little knee bend; a squat jump requires a squat before takeoff. The return to the floor completes the rep.
+
 ## Verification
 
 ```sh
@@ -60,7 +69,7 @@ npm run test:providers
 
 `test:unit` covers geometry, phase order, clocks and link validation. `test:e2e` generates Playwright tests from Gherkin, builds a separate static site at a repository subpath, and replays timestamped landmarks through the production tracker and session controller. The replay clock and injection hook are absent from the production build. `test:providers` instead runs both actual detectors on the same decoded video frames; the default check requires FFmpeg and access to the archive's source video.
 
-**Recognition is a baseline, not a validated fitness assessment.** Both providers counted the held-out squat and timed the full-body plank, and neither credited squats during jumping-jacks. They also missed both push-ups and all three jumping-jacks in the short prescribed positive sets. The four other movements have replay coverage but lack independent continuous-video validation on either provider. Physical phone performance, including iOS Safari, has not been measured.
+**Recognition is a baseline, not a validated fitness assessment.** Both providers counted the held-out squat and timed the full-body plank, and neither credited squats during jumping-jacks. They also missed both push-ups and all three jumping-jacks in the short prescribed positive sets. The other movements have landmark replay coverage but lack independent continuous-video validation on either provider. Physical phone performance, including iOS Safari, has not been measured.
 
 - [Evaluation](EVALUATION.md): source splits, per-set errors, false credits, tracking loss and coverage gaps.
 - [Provider report](docs/providers.md): coordinate contracts, model versions, asset provenance, latency, RTMO parity and the optional-provider licensing decisions.

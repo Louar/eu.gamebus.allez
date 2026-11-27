@@ -125,9 +125,11 @@ Then(
 		);
 		const slugs: string[] = [];
 		for (let i = 1; i <= 3; i++) {
-			await setup.getByRole('combobox', { name: `Exercise ${i}`, exact: true }).click();
-			slugs.push((await setup.getByRole('option', { selected: true }).getAttribute('data-value'))!);
-			await page.keyboard.press('Escape');
+			slugs.push(
+				(await setup
+					.getByRole('button', { name: `Exercise ${i}`, exact: true })
+					.getAttribute('data-exercise'))!
+			);
 		}
 		generated.set(page, slugs);
 		await setup.getByRole('button', { name: 'Done editing' }).click();

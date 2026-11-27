@@ -3,7 +3,12 @@
 	import * as m from '#lib/paraglide/messages.js';
 	import { demoFrames, type ExerciseId } from './motion';
 	import Skeleton from './Skeleton.svelte';
-	let { exercise }: { exercise: ExerciseId } = $props();
+	import { Popover } from 'bits-ui';
+	import Info from '@lucide/svelte/icons/info';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { movementGuide, name } from './words';
+	let { exercise, practice = false }: { exercise: ExerciseId; practice?: boolean } = $props();
+	let guide = $derived(practice ? movementGuide(exercise) : undefined);
 	let frames = $derived(demoFrames(exercise));
 	let time = $state(0);
 	let reduced = $state(false);
@@ -48,6 +53,36 @@
 </script>
 
 <figure class="docked" aria-label={m.demo()}>
+	{#if guide}
+		<Popover.Root>
+			<Popover.Trigger>
+				{#snippet child({ props })}
+					<Button
+						{...props}
+						class="absolute end-0 top-0"
+						variant="ghost"
+						size="icon-sm"
+						aria-label={m.demo()}
+						title={m.demo()}
+					>
+						<Info />
+					</Button>
+				{/snippet}
+			</Popover.Trigger>
+			<Popover.Portal>
+				<Popover.Content
+					aria-label={m.demo()}
+					side="top"
+					collisionPadding={8}
+					class="grid max-w-[min(20rem,90vw)] gap-2 rounded-lg border bg-popover p-4 text-popover-foreground shadow-md"
+				>
+					<strong>{name(exercise)}</strong>
+					<p>{guide.movement}</p>
+					<p>{guide.camera}</p>
+				</Popover.Content>
+			</Popover.Portal>
+		</Popover.Root>
+	{/if}
 	<div class="poses">
 		{#if reduced}{#each frames as pose, i (i)}<Skeleton frame={pose} demo />{/each}{:else}<Skeleton
 				{frame}
@@ -58,6 +93,7 @@
 
 <style>
 	figure {
+		position: relative;
 		border-radius: 0.65rem;
 		color: white;
 		width: 100%;

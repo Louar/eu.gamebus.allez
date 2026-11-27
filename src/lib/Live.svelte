@@ -10,19 +10,13 @@
 	import { Progress } from '#lib/components/ui/progress/index.js';
 	import { Session, type Workout } from './workout';
 	import { activitySnapshot, type ActivityListener } from './lifecycle';
-	import {
-		Tracker,
-		exercises,
-		type ExerciseId,
-		type PoseFrame,
-		type TrackingUpdate
-	} from './motion';
+	import { Tracker, type ExerciseId, type PoseFrame, type TrackingUpdate } from './motion';
 	import { camera } from './camera';
 	import { workoutBusy } from './offline';
 	import { name, feedback, clock, reps, staticExercise } from './words';
 	import Skeleton from './Skeleton.svelte';
 	import Demo from './Demo.svelte';
-	import LocalizedSelect from './LocalizedSelect.svelte';
+	import ExercisePicker from './ExercisePicker.svelte';
 	import WorkoutSettings from './WorkoutSettings.svelte';
 	import Play from '@lucide/svelte/icons/play';
 	import Pause from '@lucide/svelte/icons/pause';
@@ -91,7 +85,6 @@
 	let elapsed = $state('00:00'),
 		interval = $state(''),
 		intervalCount = $state('');
-	const practiceOptions = $derived(exercises.map((value) => ({ value, label: name(value) })));
 	let pauseMenu = $state(false);
 	let embedded = $state(false);
 	let currentRound = $state(1),
@@ -398,10 +391,9 @@
 {/snippet}
 
 {#snippet selector()}
-	<LocalizedSelect
+	<ExercisePicker
 		label={m.practice_select()}
 		value={practice}
-		options={practiceOptions}
 		onchange={(id: ExerciseId) => {
 			practice = id;
 			resetPractice();
@@ -643,7 +635,10 @@
 										: name(activeId)}{/if}
 						</h1>
 					</div>
-					{#if stage === 'practice' || stage === 'exercise'}<Demo exercise={activeId} />
+					{#if stage === 'practice' || stage === 'exercise'}<Demo
+							exercise={activeId}
+							practice={stage === 'practice'}
+						/>
 					{:else if stage === 'rest' && next}<p data-testid="next">
 							{m.next_ex({ exercise: name(next) })}
 						</p>{/if}
@@ -930,16 +925,22 @@
 		width: 1.25rem;
 		height: 1.25rem;
 	}
-	.practice-picker :global([data-slot='select-trigger']) {
+	.practice-picker :global(.exercise-picker) {
+		background-color: transparent;
 		height: auto;
 		padding: 0.15em 0.2em;
 		font: inherit;
 		letter-spacing: inherit;
+		line-height: 1.2;
 		color: inherit;
 		border-color: #ffffff40;
 	}
-	.practice-picker :global([data-slot='select-value']) {
+	.practice-picker :global(.exercise-picker > span) {
 		min-width: 0;
+		overflow: visible;
+		white-space: normal;
+		overflow-wrap: anywhere;
+		text-align: start;
 	}
 	.practice-picker :global(svg) {
 		width: 0.4em;
@@ -1056,6 +1057,14 @@
 		.session-time {
 			padding-inline: 0.3rem;
 			font-size: 0.75rem;
+		}
+	}
+	@media (max-width: 360px) {
+		.exercise-deck {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+		.telemetry {
+			flex-wrap: wrap;
 		}
 	}
 	@media (max-height: 480px) and (orientation: landscape) {

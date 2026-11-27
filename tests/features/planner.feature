@@ -2,12 +2,12 @@ Feature: Focused session planner
 
   Scenario Outline: Random workouts draw unique exercises before allowing nonadjacent repeats
     Given I request a random circuit of <steps> steps for two rounds
-    Then the planner shows <steps> steps using all eight exercises without adjacent repeats
+    Then the planner shows <steps> steps drawing from the whole catalog before repeating
 
     Examples:
       | steps |
-      | 8     |
-      | 9     |
+      | 16    |
+      | 17    |
       | 25    |
 
   Scenario: Random workouts reject more than 25 steps
@@ -17,6 +17,15 @@ Feature: Focused session planner
   Scenario: The bare planner starts with a predictable circuit
     Given I open the focused session planner
     Then the planner lists squat, plank and jumping-jack for one round with 15 seconds of rest
+
+  Scenario: Exercise picker preserves groups and supports keyboard search
+    Given I open the focused session planner
+    Then I can search the ordered exercise categories and choose a result with the keyboard
+
+  Scenario: Exercise picker searches localized labels
+    Given I open the focused session planner
+    When I switch setup to Dutch
+    Then I can search the Dutch exercise picker for opdrukken
 
   Scenario: A steps-only URL recipe uses the default rounds and rest
     Given I open a planner URL prescribing only 2 random exercises

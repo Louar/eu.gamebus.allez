@@ -1,3 +1,13 @@
+import {
+	alternating,
+	compoundCycles,
+	compoundIds,
+	compoundPosture,
+	isCompound
+} from './compound-motion.ts';
+import { compoundShape } from './compound-demo.ts';
+import { angle, dist } from './pose-geometry.ts';
+
 /** Source pixels: origin top left, +x right, +y down, square pixels. Names
  * refer to the subject's anatomy, never the mirrored preview. Optional z is
  * provider-specific (MediaPipe: hip-relative depth in image-width pixels).
@@ -28,7 +38,8 @@ export const exercises = [
 	'sit-up',
 	'squat-hold',
 	'burpee',
-	'plank'
+	'plank',
+	...compoundIds
 ] as const;
 export type ExerciseId = (typeof exercises)[number];
 export interface TrackingUpdate {
@@ -66,6 +77,7 @@ for (const s of sides)
 		bones.push([`${s}_${joints[a]}`, `${s}_${joints[b]}`]);
 
 const cycles = {
+	...compoundCycles,
 	'push-up': ['support', 'lowered', 'support'],
 	squat: ['standing', 'lowered', 'standing'],
 	'jumping-jack': ['closed', 'open', 'closed'],
@@ -76,11 +88,6 @@ const cycles = {
 	burpee: ['standing', 'support', 'lowered', 'support', 'tuck', 'jump', 'standing']
 } as const;
 type Phase = (typeof cycles)[ExerciseId][number] | 'waiting' | 'lost';
-const dist = (a: Keypoint, b: Keypoint) => Math.hypot(a.x - b.x, a.y - b.y);
-function angle(a: Keypoint, b: Keypoint, c: Keypoint) {
-	const cos = ((a.x - b.x) * (c.x - b.x) + (a.y - b.y) * (c.y - b.y)) / (dist(a, b) * dist(c, b));
-	return (Math.acos(Math.min(1, Math.max(-1, cos))) * 180) / Math.PI;
-}
 
 function trackedSide(id: ExerciseId, f: PoseFrame) {
 	if (f.missing || !(f.width > 0 && f.height > 0)) return;
@@ -92,17 +99,25 @@ function trackedSide(id: ExerciseId, f: PoseFrame) {
 		Number.isFinite(q.score) &&
 		q.score >= 0.25;
 	const jack = id === 'front-jack' || id === 'jumping-jack';
-	const needsArms = jack || id === 'push-up' || id === 'burpee' || id === 'plank';
+	const needsArms =
+		alternating(id) || jack || id === 'push-up' || id === 'burpee' || id === 'plank';
 	const needed = needsArms ? joints : legAndTorsoJoints;
 	const visible = sides.filter((s) => needed.every((j) => usable(p[`${s}_${j}`])));
-	if (!visible.length || (jack && visible.length !== 2)) return;
+	if (
+		!visible.length ||
+		((jack || (isCompound(id) && id !== 'glute-bridge')) && visible.length !== 2)
+	)
+		return;
 	const quality = (s: string) => Math.min(...needed.map((j) => p[`${s}_${j}`].score));
 	return visible.length === 2 && quality('right') > quality('left') ? 'right' : visible[0];
 }
 
 /** Single-frame evidence, exposed separately for scoring sparse archive stills. */
 export function posture(id: ExerciseId, f: PoseFrame, ground?: number): Phase {
-	return classify(id, f, ground, trackedSide(id, f));
+	const side = trackedSide(id, f);
+	return isCompound(id) && side
+		? compoundPosture(id, f, side).phase
+		: classify(id, f, ground, side);
 }
 
 function classify(
@@ -230,6 +245,8 @@ export class Tracker implements ExerciseTracker {
 	private samples = 0;
 	private continuous = 0;
 	private ground?: number;
+	private anchor?: PoseFrame;
+	private firstSide?: 'left' | 'right';
 	private lastTuck = -Infinity;
 	private phasePeaks: number[] = [];
 	private qualitySum = 0;
@@ -254,6 +271,8 @@ export class Tracker implements ExerciseTracker {
 		this.samples = 0;
 		this.continuous = 0;
 		this.ground = undefined;
+		this.anchor = undefined;
+		this.firstSide = undefined;
 		this.lastTuck = -Infinity;
 	}
 	update(f: PoseFrame): TrackingUpdate {
@@ -271,7 +290,11 @@ export class Tracker implements ExerciseTracker {
 			dt = 0;
 		}
 		const side = trackedSide(this.id, f);
-		const phase = classify(this.id, f, this.ground, side);
+		const observation =
+			side && isCompound(this.id)
+				? compoundPosture(this.id, f, side, this.anchor, this.index === 3)
+				: undefined;
+		const phase = observation?.phase ?? classify(this.id, f, this.ground, side);
 		if (!side || phase === 'lost') {
 			this.breakContinuity();
 			this.last = f.timestamp;
@@ -281,7 +304,27 @@ export class Tracker implements ExerciseTracker {
 		this.provider = f.provider;
 		this.samples = this.candidate === phase ? this.samples + 1 : 1;
 		this.candidate = phase;
-		const sequence: readonly string[] = cycles[this.id];
+		const quality = () =>
+			observation?.quality ?? phaseQuality(this.id, phase, f, side, this.ground);
+		let sequence: readonly string[] = cycles[this.id];
+		if (
+			observation?.invalidate ||
+			(this.id === 'squat-jump' &&
+				this.index === 2 &&
+				f.timestamp - this.lastTuck > 0.8 &&
+				phase !== 'lowered')
+		) {
+			this.index = 0;
+			this.phasePeaks = [];
+			if (this.id.endsWith('lunge')) this.anchor = undefined;
+		}
+		if (this.id === 'squat-jump' && phase === 'lowered') this.lastTuck = f.timestamp;
+		if (alternating(this.id)) {
+			if (this.index === 1 && this.samples >= 2 && (phase === 'left' || phase === 'right'))
+				this.firstSide = phase;
+			if (this.firstSide === 'right')
+				sequence = sequence.map((p) => (p === 'left' ? 'right' : p === 'right' ? 'left' : p));
+		}
 		if (this.id === 'burpee' && sequence[this.index] === 'jump') {
 			if (phase === 'tuck') this.lastTuck = f.timestamp;
 			if (f.timestamp - this.lastTuck > 0.75) {
@@ -291,6 +334,12 @@ export class Tracker implements ExerciseTracker {
 		}
 		let rep = false,
 			held = 0;
+		// A cyclist or heel tapper can flow directly from the second side back to
+		// the lead side; this ends one pair and also starts the next.
+		const crossing =
+			(this.id === 'bicycle-crunch' || this.id === 'heel-tap') &&
+			this.index === sequence.length - 1 &&
+			phase === this.firstSide;
 		if (sequence.length === 1) {
 			// One ambiguous posture freezes the streak; both adjacent intervals
 			// are excluded. A second mismatch or any missing observation breaks it.
@@ -301,8 +350,13 @@ export class Tracker implements ExerciseTracker {
 				this.qualityWeight += dt;
 			}
 			if (phase !== sequence[0] && this.samples >= 2) this.continuous = 0;
-		} else if (this.samples >= 2 && phase === sequence[this.index]) {
-			this.phasePeaks[this.index] = phaseQuality(this.id, phase, f, side, this.ground);
+		} else if (
+			(this.samples >= 2 || (observation && (phase === 'hop' || phase === 'jump'))) &&
+			(phase === sequence[this.index] || crossing)
+		) {
+			this.phasePeaks[this.index] = quality();
+			if (observation && phase === 'standing' && (this.index === 0 || this.id.endsWith('lunge')))
+				this.anchor = f;
 			if (phase === 'tuck') this.lastTuck = f.timestamp;
 			if (this.id === 'burpee' && this.index === 0)
 				this.ground = Math.max(f.points.left_ankle?.y ?? 0, f.points.right_ankle?.y ?? 0);
@@ -310,28 +364,27 @@ export class Tracker implements ExerciseTracker {
 				rep = true;
 				// Depth and jump width come from the active phase, not the return to rest.
 				const peaks = this.phasePeaks;
-				this.qualitySum +=
-					this.id === 'burpee'
-						? peaks.slice(1).reduce((sum, q) => sum + q, 0) / (sequence.length - 1)
-						: this.id === 'sit-up'
-							? (peaks[0] + peaks[1]) / 2
-							: peaks[1];
+				let score = peaks[1];
+				if (this.id === 'burpee')
+					score = peaks.slice(1).reduce((sum, q) => sum + q, 0) / (sequence.length - 1);
+				else if (alternating(this.id)) score = (peaks[1] + peaks[sequence.length - 2]) / 2;
+				else if (this.id === 'squat-jump') score = (peaks[1] + peaks[2]) / 2;
+				else if (this.id === 'sit-up') score = (peaks[0] + peaks[1]) / 2;
+				this.qualitySum += score;
 				this.qualityWeight++;
-				this.phasePeaks = [peaks[this.index - 1]];
-				this.index = 1;
+				this.phasePeaks = crossing ? [0, quality()] : [peaks[this.index - 1]];
+				this.index = crossing ? 2 : 1;
 			}
 		} else if (this.index > 0 && this.samples >= 2 && phase === sequence[this.index - 1]) {
 			// The phase is recognized before the athlete reaches its deepest or widest point.
 			const i = this.index - 1;
-			this.phasePeaks[i] = Math.max(
-				this.phasePeaks[i] ?? 0,
-				phaseQuality(this.id, phase, f, side, this.ground)
-			);
+			this.phasePeaks[i] = Math.max(this.phasePeaks[i] ?? 0, quality());
 		} else if (
 			this.samples >= 2 &&
 			phase === sequence[0] &&
 			this.index > 1 &&
-			sequence[this.index] !== 'jump'
+			sequence[this.index] !== 'jump' &&
+			!alternating(this.id)
 		) {
 			this.index = 1;
 			this.phasePeaks = [phaseQuality(this.id, phase, f, side, this.ground)];
@@ -434,7 +487,11 @@ const shapes: Record<string, number[][]> = {
 	]
 };
 export function demoFrames(id: ExerciseId): PoseFrame[] {
-	return cycles[id].map((phase, index) => {
+	const phases =
+		id === 'heel-tap' || id === 'bicycle-crunch'
+			? ['neutral', 'left', 'neutral', 'right', 'neutral']
+			: cycles[id];
+	return phases.map((phase, index) => {
 		const jack = id.endsWith('jack');
 		const name =
 			(phase === 'lowered' && id.startsWith('squat')) || phase === 'tuck'
@@ -443,17 +500,19 @@ export function demoFrames(id: ExerciseId): PoseFrame[] {
 					? 'standing'
 					: phase;
 		const points: PoseFrame['points'] = {};
-		for (const side of sides)
+		for (const side of sides) {
+			const compound = isCompound(id) ? compoundShape(id, phase, side, shapes) : undefined;
 			joints.forEach((joint, i) => {
-				let [x, y] = shapes[name][i];
-				if (side === 'right') {
+				let [x, y] = (compound ?? shapes[name])[i];
+				if (!compound && side === 'right') {
 					if (phase === 'forward' && (i === 1 || i === 2)) x -= 20;
 					else x = jack ? 200 - x : x - 5;
 					if (!jack) y -= 2;
 				}
-				if (phase === 'jump') y -= 16;
+				if (!compound && phase === 'jump') y -= 16;
 				points[`${side}_${joint}`] = { x, y, score: 1 };
 			});
+		}
 		const s = points.left_shoulder,
 			h = points.left_hip;
 		points.nose = {

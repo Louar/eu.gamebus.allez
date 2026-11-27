@@ -19,6 +19,11 @@ Feature: Follow the prescribed circuit on the static site
     And I open the address-bar link and return to setup without enabling the camera
     Then the editable target is 7 reps of "squat"
 
+  Scenario: Practice explains camera placement and what counts as a dead bug rep
+    Given my circuit prescribes 3 reps of "dead-bug"
+    When I practise "dead-bug"
+    Then the movement guide explains alternating pairs and camera placement
+
   Scenario: A malformed link opens an actionable setup screen
     Given I open a malformed link
     Then setup shows a link error and an edit action
